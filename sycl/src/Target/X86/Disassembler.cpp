@@ -80,9 +80,12 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
   std::vector<InstInfo> insts(tasks);
   std::vector<size_t> sizes(tasks);
   for (int i = 0; i < tasks; ++i) {
+    if (status[i] == llvm::MCDisassembler::Fail) {
+      insts[i].status = llvm::MCDisassembler::Fail;
+      continue;
+    }
     InternalInstruction &Insn = results[i];
     sizes[i] = Insn.length;
-    insts[i].status = status[i];
     if (sizes[i] > 15)
       LLVM_DEBUG(dbgs() << "Instruction exceeds 15-byte limit");
     // std::cout << (void *)(Insn.operands.data()) << std::endl;

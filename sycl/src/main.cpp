@@ -176,47 +176,49 @@ int main(int argc, char **argv) {
     auto base_addr = section.virtual_address();
     uint64_t len = section.content().size();
     auto content = elf->get_content_from_virtual_address(base_addr, len);
-    // for (int i = 0; i < len / 4; ++i) {
-    //   const llvm::ArrayRef<uint8_t> data(content.begin() + 4 * i,
+    // for (int i = 0; i < len; i += args->step_size) {
+    //   auto offset = i * args->step_size;
+    //   const llvm::ArrayRef<uint8_t> data(content.begin() + offset,
     //                                      content.end());
-    //   auto insn = disassemble(disassembler, data, base_addr + 4 * i);
+    //   auto insn = disassemble(disassembler, data, base_addr + offset);
     //   if (!insn) {
-    //     continue;
-    //   }
-    //   std::cout << "0x" << std::hex << base_addr + 4 * i << " "
-    //             <<
-    //             instruction_printer->getOpcodeName(insn->getOpcode()).str()
-    //             << std::endl;
-    // }
-    std::vector<uint8_t> content_vector{content.begin(), content.end()};
-    auto insns = gapstone_disassembler->batch_disassemble(
-        base_addr, content_vector, args->step_size);
-    // for (int i = 0; i < insns.size(); ++i) {
-    //   if (insns[i].status != llvm::MCDisassembler::DecodeStatus::Success ||
-    //       insns[i].inst.getOpcode() == 0) {
     //     continue;
     //   }
     //   std::string insn_str;
     //   llvm::raw_string_ostream str_stream(insn_str);
-    //   try {
+    //   if (insn) {
     //     instruction_printer->printInst(
-    //         &insns[i].inst,
+    //         &*insn,
     //         /* Address */ base_addr + args->step_size * i,
     //         /* Annot */ "", *subtarget_info, str_stream);
-    //     std::cout
-    //         << "0x" << std::hex << base_addr + args->step_size * i
-    //         << " "
-    //         // <<
-    //         instruction_printer->getOpcodeName(insns[i].inst.getOpcode()).str()
-    //         << insn_str
-    //         << std::endl;
-    //   } catch (std::exception &e) {
-    //     std::cerr << "Instruction at " << "0x" << std::hex
-    //               << base_addr + args->step_size * i << " failed to print."
+    //     std::cout << "0x" << std::hex << base_addr + offset << " "
+    //               // <<
+    //               instruction_printer->getOpcodeName(insn->getOpcode()).str()
+    //               << insn_str
     //               << std::endl;
-    //     continue;
     //   }
     // }
+    std::vector<uint8_t> content_vector{content.begin(), content.end()};
+    auto insns = gapstone_disassembler->batch_disassemble(
+        base_addr, content_vector, args->step_size);
+    for (int i = 0; i < insns.size(); ++i) {
+      if (insns[i].status != llvm::MCDisassembler::DecodeStatus::Success ||
+          insns[i].inst.getOpcode() == 0) {
+        continue;
+      }
+      std::cout << "0x" << std::hex << base_addr + args->step_size * i << " "
+                << std::flush;
+      std::string insn_str;
+      llvm::raw_string_ostream str_stream(insn_str);
+      instruction_printer->printInst(
+          &insns[i].inst,
+          /* Address */ base_addr + args->step_size * i,
+          /* Annot */ "", *subtarget_info, str_stream);
+      std::cout
+          // <<
+          // instruction_printer->getOpcodeName(insns[i].inst.getOpcode()).str()
+          << insn_str << std::endl;
+    }
   }
 
   std::cout << "Selected device: "
