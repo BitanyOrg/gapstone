@@ -1,0 +1,6 @@
+[submodule "thirdparty/llvm-project"]
+	path = thirdparty/llvm-project
+	url = https://github.com/llvm/llvm-project.git
+[submodule "thirdparty/LIEF"]
+	path = thirdparty/LIEF
+	url = https://github.com/lief-project/LIEF.git

@@ -1,0 +1,4 @@
+#ifndef GAPSTONE_DISASSEMBLERS_H
+#define GAPSTONE_DISASSEMBLERS_H
+#include "AArch64/GapstoneDisassembler.h"
+#endif //GAPSTONE_DISASSEMBLERS_H
