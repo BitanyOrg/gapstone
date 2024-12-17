@@ -9,6 +9,7 @@ endforeach()
 
 add_library(
     SyclDisassembler
+    ${CMAKE_CURRENT_SOURCE_DIR}/Disassemblers.cpp
     ${DISASSEMBLER_SOURCE}
 )
 

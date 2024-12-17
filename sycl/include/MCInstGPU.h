@@ -190,7 +190,7 @@ public:
   unsigned Flags = 0;
 
   SMLoc Loc;
-  StaticVector<MCOperandGPU, 10> Operands;
+  StaticVector<MCOperand, 6> Operands;
 
   MCInstGPU() = default;
 
@@ -203,11 +203,11 @@ public:
   void setLoc(SMLoc loc) { Loc = loc; }
   SMLoc getLoc() const { return Loc; }
 
-  const MCOperandGPU &getOperand(unsigned i) const { return Operands[i]; }
-  MCOperandGPU &getOperand(unsigned i) { return Operands[i]; }
+  const MCOperand &getOperand(unsigned i) const { return Operands[i]; }
+  MCOperand &getOperand(unsigned i) { return Operands[i]; }
   unsigned getNumOperands() const { return Operands.size(); }
 
-  void addOperand(const MCOperandGPU Op) { Operands.push_back(Op); }
+  void addOperand(const MCOperand Op) { Operands.push_back(Op); }
 
   // using iterator = StaticVector<MCOperandGPU, 8>::iterator;
   // using const_iterator = StaticVector<MCOperandGPU, 8>::const_iterator;

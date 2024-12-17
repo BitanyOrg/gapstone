@@ -31,7 +31,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "aarch64-disassembler"
+// #define DEBUG_TYPE "aarch64-disassembler"
 
 // Pull DecodeStatus and its enum values into the global namespace.
 using DecodeStatus = MCDisassembler::DecodeStatus;
@@ -207,6 +207,7 @@ static DecodeStatus DecodePRFMRegInstruction(MCInst &Inst, uint32_t insn,
                                              uint64_t Address,
                                              const MCDisassembler *Decoder);
 
+#undef llvm_unreachable
 #define llvm_unreachable(msg) ;
 #include "AArch64GenDisassemblerTables.inc"
 #include "AArch64GenInstrInfo.inc"

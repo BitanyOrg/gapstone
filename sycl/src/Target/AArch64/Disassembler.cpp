@@ -8,13 +8,14 @@
 #include <sycl/sycl.hpp>
 #include <usm.hpp>
 #include <vector>
-
-// template <unsigned long N>
-DecodeStatus disassemble_instruction(MCInstGPU &MI, unsigned &DecodeIdx,
-                                     uint32_t &Insn, uint64_t &Size,
-                                     ArrayRef<uint8_t> Bytes, uint64_t Address,
-                                     const MCDisassembler *DisAsm,
-                                     const FeatureBitset &Bits) {
+namespace gapstone {
+namespace AArch64Impl {
+static DecodeStatus disassemble_instruction(MCInstGPU &MI, unsigned &DecodeIdx,
+                                            uint32_t &Insn, uint64_t &Size,
+                                            ArrayRef<uint8_t> Bytes,
+                                            uint64_t Address,
+                                            const MCDisassembler *DisAsm,
+                                            const FeatureBitset &Bits) {
   Size = 0;
   // We want to read exactly 4 bytes of data.
   if (Bytes.size() < 4)
@@ -37,15 +38,12 @@ DecodeStatus disassemble_instruction(MCInstGPU &MI, unsigned &DecodeIdx,
   return MCDisassembler::Fail;
 }
 
-namespace gapstone {
-
-std::vector<llvm::MCInst> disassemble_impl(sycl::queue &q,
-                                           llvm::MCDisassembler &MCDisassembler,
-                                           uint64_t base_addr,
-                                           std::vector<uint8_t> &content,
-                                           int step_size) {
+static std::vector<InstInfo>
+disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
+                 uint64_t base_addr, std::vector<uint8_t> &content,
+                 int step_size) {
   auto tasks = content.size() / step_size;
-  llvm::MCInstGPU *results = sycl::malloc_host<llvm::MCInstGPU>(tasks, q);
+  llvm::MCInstGPU *results = sycl::malloc_shared<llvm::MCInstGPU>(tasks, q);
   unsigned *decodeIdx = sycl::malloc_shared<unsigned>(tasks, q);
   uint32_t *insns = sycl::malloc_shared<uint32_t>(tasks, q);
   DecodeStatus *status = sycl::malloc_shared<DecodeStatus>(tasks, q);
@@ -61,22 +59,26 @@ std::vector<llvm::MCInst> disassemble_impl(sycl::queue &q,
       uint64_t size;
       uint64_t offset = i * buffer_size / tasks;
       llvm::ArrayRef<uint8_t> array_ref(shared_content + offset, 4);
-      status[i] = disassemble_instruction(results[i], decodeIdx[i], insns[i], size, array_ref,
-                              base_addr + offset, nullptr, Bits);
+      status[i] =
+          disassemble_instruction(results[i], decodeIdx[i], insns[i], size,
+                                  array_ref, base_addr + offset, nullptr, Bits);
     });
   });
   q.wait();
-  std::vector<llvm::MCInst> insts(tasks);
+  std::vector<InstInfo> insts(tasks);
   for (int i = 0; i < tasks; ++i) {
     bool DecodeComplete = true;
-    insts[i].setOpcode(results[i].getOpcode());
-    decodeToMCInst(status[i], decodeIdx[i], insns[i], insts[i], base_addr + 4 *i, &MCDisassembler, DecodeComplete);
+    insts[i].inst.setOpcode(results[i].getOpcode());
+    insts[i].status = decodeToMCInst(status[i], decodeIdx[i], insns[i], insts[i].inst,
+                   base_addr + 4 * i, &MCDisassembler, DecodeComplete);
   }
   return insts;
 }
+} // namespace AArch64Impl
 
-std::vector<llvm::MCInst> AArch64Disassembler::batch_disassemble(
+std::vector<InstInfo> AArch64Disassembler::batch_disassemble(
     uint64_t base_addr, std::vector<uint8_t> &content, int step_size) {
-  return disassemble_impl(q, MCDisassembler, base_addr, content, step_size);
+  return AArch64Impl::disassemble_impl(q, MCDisassembler, base_addr, content,
+                                       step_size);
 }
 } // namespace gapstone

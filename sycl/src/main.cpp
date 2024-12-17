@@ -2,10 +2,14 @@
 
 // SPDX-License-Identifier: MIT
 
+#include "Disassemblers.h"
+#include "MCInstGPU.h"
+#include "SyclDisassembler.h"
 #include <LIEF/LIEF.hpp>
 #include <access/access.hpp>
 #include <boost/program_options.hpp>
 #include <device_selector.hpp>
+#include <exception.hpp>
 #include <iostream>
 #include <llvm/MC/MCAsmInfo.h>
 #include <llvm/MC/MCContext.h>
@@ -21,18 +25,10 @@
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/TargetParser/Triple.h>
 #include <sycl/sycl.hpp>
-// #include <vector>
 
-#include "Disassemblers.h"
-#include "MCInstGPU.h"
 using namespace sycl;
 using namespace llvm;
 using DecodeStatus = llvm::MCDisassembler::DecodeStatus;
-
-// #include "AArch64GenDisassemblerTables.inc"
-// #include "AArch64/AArch64GenRegisterInfo.inc"
-// #include "AArch64/AArch64GenSubtargetInfo.inc"
-// #include "AArch64/AArch64GenDisassemblerTables.inc"
 
 namespace po = boost::program_options;
 
@@ -41,6 +37,7 @@ struct Args {
   std::optional<std::string> triple;
   std::string cpu;
   std::string features;
+  int step_size;
 };
 
 std::optional<Args> ParseArgs(int argc, char *argvp[]) {
@@ -48,9 +45,9 @@ std::optional<Args> ParseArgs(int argc, char *argvp[]) {
   desc.add_options()("file_path,f", po::value<std::string>(),
                      "File to disassemble")(
       "triple,t", po::value<std::string>(),
-      "Target triple")("cpu,c", po::value<std::string>(),
-                       "CPU")("features,r", po::value<std::string>(),
-                              "Features")("help,h", "Print help");
+      "Target triple")("cpu,c", po::value<std::string>(), "CPU")(
+      "features,r", po::value<std::string>(), "Features")(
+      "step_size,s", po::value<int>(), "Step Size")("help,h", "Print help");
   po::positional_options_description p;
   p.add("file_path", 1);
 
@@ -70,6 +67,7 @@ std::optional<Args> ParseArgs(int argc, char *argvp[]) {
                          : std::nullopt,
       vm.count("cpu") ? vm["cpu"].as<std::string>() : "",
       vm.count("features") ? vm["features"].as<std::string>() : "",
+      vm.count("step_size") ? vm["step_size"].as<int>() : 1,
   });
 }
 
@@ -168,6 +166,7 @@ int main(int argc, char **argv) {
     return -1;
   }
 
+  auto gapstone_disassembler = gapstone::createDisassembler(*disassembler, q);
   std::cout << "Processing Arch " << to_string(elf->header().architecture())
             << std::endl;
   for (auto &section : elf->sections()) {
@@ -189,59 +188,34 @@ int main(int argc, char **argv) {
     //             instruction_printer->getOpcodeName(insn->getOpcode()).str()
     //             << std::endl;
     // }
-    gapstone::AArch64Disassembler gapstone_disassembler{*disassembler, q};
     std::vector<uint8_t> content_vector{content.begin(), content.end()};
-    auto insns =
-        gapstone_disassembler.batch_disassemble(base_addr, content_vector, 4);
-    for (int i = 0; i < insns.size(); ++i) {
-      std::string insn_str;
-      llvm::raw_string_ostream str_stream(insn_str);
-      instruction_printer->printInst(&insns[i],
-                                     /* Address */ base_addr + 4 * i,
-                                     /* Annot */ "", *subtarget_info,
-                                     str_stream);
-      std::cout
-          << "0x" << std::hex << base_addr + 4 * i
-          << " "
-          // << instruction_printer->getOpcodeName(insns[i].getOpcode()).str()
-          << insn_str << std::endl;
-    }
-    // auto tasks = len / 4;
-    // std::vector<llvm::MCInstGPU> insns(tasks);
-    // // std::vector<llvm::MCInst> insts(tasks);
-    // buffer result_buffer(insns.data(), {tasks});
-    // buffer content_buffer(content);
-    // buffer decoder_table_buffer(DecoderTable32, {sizeof DecoderTable32});
-    // q.submit([&](handler &h) {
-    //   // create an accessor to update
-    //   // the buffer on the device
-    //   accessor device_content_accessor(content_buffer, h);
-    //   accessor device_result_accessor(result_buffer, h);
-    //   accessor device_decoder_table_accessor(decoder_table_buffer, h,
-    //                                          read_only);
-
-    //   h.parallel_for(tasks, [=](id<1> i) {
-    //     uint64_t Address = base_addr + 4 * i;
-    //     uint32_t Insn = (device_content_accessor[4 * i + 3] << 24) |
-    //                     (device_content_accessor[4 * i + 2] << 16) |
-    //                     (device_content_accessor[4 * i + 1] << 8) |
-    //                     (device_content_accessor[4 * i + 0] << 0);
-    //     MCInstGPU tmp;
-    //     auto status = decodeInstruction(
-    //         device_decoder_table_accessor.get_multi_ptr<access::decorated::no>()
-    //             .get(),
-    //         tmp, Insn, Address, Bits);
-    //     if (status == DecodeStatus::Success)
-    //       device_result_accessor[i] = tmp;
-    //   });
-    // });
-    // host_accessor host_result_accessor(result_buffer);
-    // for (int i = 0; i < tasks; ++i) {
-    //   std::cout << "0x" << std::hex << base_addr + 4 * i << " "
-    //             << instruction_printer
-    //                    ->getOpcodeName(host_result_accessor[i].getOpcode())
-    //                    .str()
-    //             << std::endl;
+    auto insns = gapstone_disassembler->batch_disassemble(
+        base_addr, content_vector, args->step_size);
+    // for (int i = 0; i < insns.size(); ++i) {
+    //   if (insns[i].status != llvm::MCDisassembler::DecodeStatus::Success ||
+    //       insns[i].inst.getOpcode() == 0) {
+    //     continue;
+    //   }
+    //   std::string insn_str;
+    //   llvm::raw_string_ostream str_stream(insn_str);
+    //   try {
+    //     instruction_printer->printInst(
+    //         &insns[i].inst,
+    //         /* Address */ base_addr + args->step_size * i,
+    //         /* Annot */ "", *subtarget_info, str_stream);
+    //     std::cout
+    //         << "0x" << std::hex << base_addr + args->step_size * i
+    //         << " "
+    //         // <<
+    //         instruction_printer->getOpcodeName(insns[i].inst.getOpcode()).str()
+    //         << insn_str
+    //         << std::endl;
+    //   } catch (std::exception &e) {
+    //     std::cerr << "Instruction at " << "0x" << std::hex
+    //               << base_addr + args->step_size * i << " failed to print."
+    //               << std::endl;
+    //     continue;
+    //   }
     // }
   }
 

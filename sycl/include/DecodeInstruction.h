@@ -17,7 +17,7 @@ DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU &MI, unsig
   uint64_t CurFieldValue = 0;
   DecodeStatus S = MCDisassembler::Success;
   while (true) {
-    ptrdiff_t Loc = Ptr - DecodeTable;
+    // ptrdiff_t Loc = Ptr - DecodeTable;
     switch (*Ptr) {
     default:
       return MCDisassembler::Fail;
@@ -86,7 +86,7 @@ DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU &MI, unsig
 
       //   MI.clear();
       MI.setOpcode(Opc);
-      bool DecodeComplete = true;
+      // bool DecodeComplete = true;
       // S = decodeToMCInst(S, DecodeIdx, insn, MI, Address, DisAsm,
       //                    DecodeComplete);
       return S;

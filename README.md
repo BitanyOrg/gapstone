@@ -11,3 +11,7 @@ Use the following scripts to dump json tblgen.
 ```bash
 python3 scripts/generate_tables.py --tblgen llvm-tblgen-{LLVM_VERSION} --llvm ./llvm --output ./tblgen
 ```
+
+## TODO
+
+[](Decode Operands on Accelerators)

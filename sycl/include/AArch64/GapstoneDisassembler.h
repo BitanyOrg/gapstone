@@ -7,8 +7,9 @@ class AArch64Disassembler : public SyclDisassembler {
 public:
   AArch64Disassembler(llvm::MCDisassembler &dd, sycl::queue &qq)
       : SyclDisassembler(dd, qq) {}
-  virtual std::vector<llvm::MCInst> batch_disassemble(
-    uint64_t base_addr, std::vector<uint8_t> &content, int step_size) override;
+  virtual std::vector<InstInfo>
+  batch_disassemble(uint64_t base_addr, std::vector<uint8_t> &content,
+                    int step_size = 4) override;
 };
 } // namespace gapstone
 

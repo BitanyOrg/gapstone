@@ -1,7 +1,10 @@
 llvm/
 tblgen/*
-build/
+build*/
 .cache/
 .mypy_cache/
 __pycache__/
 .vscode/
+docker/
+/src/
+emitter
