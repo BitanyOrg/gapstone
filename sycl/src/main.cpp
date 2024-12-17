@@ -38,6 +38,7 @@ struct Args {
   std::string cpu;
   std::string features;
   int step_size;
+  bool naive;
 };
 
 std::optional<Args> ParseArgs(int argc, char *argvp[]) {
@@ -46,8 +47,10 @@ std::optional<Args> ParseArgs(int argc, char *argvp[]) {
                      "File to disassemble")(
       "triple,t", po::value<std::string>(),
       "Target triple")("cpu,c", po::value<std::string>(), "CPU")(
-      "features,r", po::value<std::string>(), "Features")(
-      "step_size,s", po::value<int>(), "Step Size")("help,h", "Print help");
+      "features,r", po::value<std::string>(),
+      "Features")("step_size,s", po::value<int>(), "Step Size")(
+      "naive,n", "Use naive implementation")("help,h",
+                                                                "Print help");
   po::positional_options_description p;
   p.add("file_path", 1);
 
@@ -68,6 +71,7 @@ std::optional<Args> ParseArgs(int argc, char *argvp[]) {
       vm.count("cpu") ? vm["cpu"].as<std::string>() : "",
       vm.count("features") ? vm["features"].as<std::string>() : "",
       vm.count("step_size") ? vm["step_size"].as<int>() : 1,
+      vm.count("naive") ? true : false,
   });
 }
 
@@ -176,48 +180,46 @@ int main(int argc, char **argv) {
     auto base_addr = section.virtual_address();
     uint64_t len = section.content().size();
     auto content = elf->get_content_from_virtual_address(base_addr, len);
-    // for (int i = 0; i < len; i += args->step_size) {
-    //   auto offset = i * args->step_size;
-    //   const llvm::ArrayRef<uint8_t> data(content.begin() + offset,
-    //                                      content.end());
-    //   auto insn = disassemble(disassembler, data, base_addr + offset);
-    //   if (!insn) {
-    //     continue;
-    //   }
-    //   std::string insn_str;
-    //   llvm::raw_string_ostream str_stream(insn_str);
-    //   if (insn) {
-    //     instruction_printer->printInst(
-    //         &*insn,
-    //         /* Address */ base_addr + args->step_size * i,
-    //         /* Annot */ "", *subtarget_info, str_stream);
-    //     std::cout << "0x" << std::hex << base_addr + offset << " "
-    //               // <<
-    //               instruction_printer->getOpcodeName(insn->getOpcode()).str()
-    //               << insn_str
-    //               << std::endl;
-    //   }
-    // }
-    std::vector<uint8_t> content_vector{content.begin(), content.end()};
-    auto insns = gapstone_disassembler->batch_disassemble(
-        base_addr, content_vector, args->step_size);
-    for (int i = 0; i < insns.size(); ++i) {
-      if (insns[i].status != llvm::MCDisassembler::DecodeStatus::Success ||
-          insns[i].inst.getOpcode() == 0) {
-        continue;
+    if (args->naive) {
+
+      for (int i = 0; i < len; i += args->step_size) {
+        auto offset = i * args->step_size;
+        const llvm::ArrayRef<uint8_t> data(content.begin() + offset,
+                                           content.end());
+        auto insn = disassemble(disassembler, data, base_addr + offset);
+        if (!insn) {
+          continue;
+        }
+        std::string insn_str;
+        llvm::raw_string_ostream str_stream(insn_str);
+        if (insn) {
+          instruction_printer->printInst(
+              &*insn,
+              /* Address */ base_addr + args->step_size * i,
+              /* Annot */ "", *subtarget_info, str_stream);
+          std::cout << "0x" << std::hex << base_addr + offset << " " << insn_str
+                    << std::endl;
+        }
       }
-      std::cout << "0x" << std::hex << base_addr + args->step_size * i << " "
-                << std::flush;
-      std::string insn_str;
-      llvm::raw_string_ostream str_stream(insn_str);
-      instruction_printer->printInst(
-          &insns[i].inst,
-          /* Address */ base_addr + args->step_size * i,
-          /* Annot */ "", *subtarget_info, str_stream);
-      std::cout
-          // <<
-          // instruction_printer->getOpcodeName(insns[i].inst.getOpcode()).str()
-          << insn_str << std::endl;
+    } else {
+
+      std::vector<uint8_t> content_vector{content.begin(), content.end()};
+      auto insns = gapstone_disassembler->batch_disassemble(
+          base_addr, content_vector, args->step_size);
+      for (int i = 0; i < insns.size(); ++i) {
+        if (insns[i].status != llvm::MCDisassembler::DecodeStatus::Success) {
+          continue;
+        }
+        std::cout << "0x" << std::hex << base_addr + args->step_size * i << " "
+                  << std::flush;
+        std::string insn_str;
+        llvm::raw_string_ostream str_stream(insn_str);
+        instruction_printer->printInst(
+            &insns[i].inst,
+            /* Address */ base_addr + args->step_size * i,
+            /* Annot */ "", *subtarget_info, str_stream);
+        std::cout << insn_str << std::endl;
+      }
     }
   }
 
