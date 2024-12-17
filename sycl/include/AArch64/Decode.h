@@ -207,6 +207,8 @@ static DecodeStatus DecodePRFMRegInstruction(MCInst &Inst, uint32_t insn,
                                              uint64_t Address,
                                              const MCDisassembler *Decoder);
 
+#undef LLVM_DEBUG
+#define LLVM_DEBUG(msg) ;
 #undef llvm_unreachable
 #define llvm_unreachable(msg) ;
 #include "AArch64GenDisassemblerTables.inc"

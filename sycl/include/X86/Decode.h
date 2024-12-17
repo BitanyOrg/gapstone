@@ -55,7 +55,7 @@
 //
 // 7. As the last step, the disassembler translates the instruction information
 //    and operands into a format understandable by the client - in this case, an
-//    MCInst for use by the MC infrastructure.
+//    MCInstGPU for use by the MC infrastructure.
 //
 // The disassembler is broken broadly into two parts: the table emitter that
 // emits the instruction decode tables discussed above during compilation, and
@@ -74,6 +74,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Disassembler/X86DisassemblerDecoder.h"
+#include "MCInstGPU.h"
 #include "MCTargetDesc/X86BaseInfo.h"
 #include "MCTargetDesc/X86MCTargetDesc.h"
 #include "TargetInfo/X86TargetInfo.h"
@@ -87,7 +88,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
-#include "MCInstGPU.h"
 
 using namespace llvm;
 using namespace llvm::X86Disassembler;
@@ -99,9 +99,9 @@ namespace gapstoneX86 {
 #define GET_INSTRINFO_MC_DESC
 #include "X86GenInstrInfo.inc"
 } // namespace gapstoneX86
-static const char * getInstrNameById(uint16_t instructionID) {
+static const char *getInstrNameById(uint16_t instructionID) {
   return &gapstoneX86::llvm::X86InstrNameData
-                       [gapstoneX86::llvm::X86InstrNameIndices[instructionID]];
+      [gapstoneX86::llvm::X86InstrNameIndices[instructionID]];
 }
 
 #undef LLVM_DEBUG
@@ -1440,7 +1440,8 @@ static int getInstructionID(struct InternalInstruction *insn) {
       return 0;
     }
 
-    auto specName = getInstrNameById(instructionID); // mii->getName(instructionID);
+    auto specName =
+        getInstrNameById(instructionID); // mii->getName(instructionID);
     auto specWithOpSizeName = getInstrNameById(
         instructionIDWithOpsize); // mii->getName(instructionIDWithOpsize);
 
@@ -1824,7 +1825,7 @@ enum {
 
 } // namespace llvm
 
-static bool translateInstruction(MCInst &target, InternalInstruction &source,
+static bool translateInstruction(MCInstGPU &target, InternalInstruction &source,
                                  const MCDisassembler *Dis);
 
 //
@@ -1832,11 +1833,11 @@ static bool translateInstruction(MCInst &target, InternalInstruction &source,
 //
 
 /// translateRegister - Translates an internal register to the appropriate LLVM
-///   register, and appends it as an operand to an MCInst.
+///   register, and appends it as an operand to an MCInstGPU.
 ///
-/// @param mcInst     - The MCInst to append to.
+/// @param mcInst     - The MCInstGPU to append to.
 /// @param reg        - The Reg to append.
-static void translateRegister(MCInst &mcInst, Reg reg) {
+static void translateRegister(MCInstGPU &mcInst, Reg reg) {
 #define ENTRY(x) X86::x,
   static constexpr MCPhysReg llvmRegnums[] = {ALL_REGS};
 #undef ENTRY
@@ -1849,11 +1850,11 @@ static const uint8_t segmentRegnums[SEG_OVERRIDE_max] = {
     0, // SEG_OVERRIDE_NONE
     X86::CS, X86::SS, X86::DS, X86::ES, X86::FS, X86::GS};
 
-/// translateSrcIndex   - Appends a source index operand to an MCInst.
+/// translateSrcIndex   - Appends a source index operand to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param insn         - The internal instruction.
-static bool translateSrcIndex(MCInst &mcInst, InternalInstruction &insn) {
+static bool translateSrcIndex(MCInstGPU &mcInst, InternalInstruction &insn) {
   unsigned baseRegNo;
 
   if (insn.mode == MODE_64BIT)
@@ -1873,12 +1874,12 @@ static bool translateSrcIndex(MCInst &mcInst, InternalInstruction &insn) {
   return false;
 }
 
-/// translateDstIndex   - Appends a destination index operand to an MCInst.
+/// translateDstIndex   - Appends a destination index operand to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param insn         - The internal instruction.
 
-static bool translateDstIndex(MCInst &mcInst, InternalInstruction &insn) {
+static bool translateDstIndex(MCInstGPU &mcInst, InternalInstruction &insn) {
   unsigned baseRegNo;
 
   if (insn.mode == MODE_64BIT)
@@ -1894,13 +1895,13 @@ static bool translateDstIndex(MCInst &mcInst, InternalInstruction &insn) {
   return false;
 }
 
-/// translateImmediate  - Appends an immediate operand to an MCInst.
+/// translateImmediate  - Appends an immediate operand to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param immediate    - The immediate value to append.
 /// @param operand      - The operand, as stored in the descriptor table.
 /// @param insn         - The internal instruction.
-static void translateImmediate(MCInst &mcInst, uint64_t immediate,
+static void translateImmediate(MCInstGPU &mcInst, uint64_t immediate,
                                const OperandSpecifier &operand,
                                InternalInstruction &insn,
                                const MCDisassembler *Dis) {
@@ -1908,11 +1909,11 @@ static void translateImmediate(MCInst &mcInst, uint64_t immediate,
 
   OperandType type = (OperandType)operand.type;
 
-  bool isBranch = false;
-  uint64_t pcrel = 0;
+  // bool isBranch = false;
+  // uint64_t pcrel = 0;
   if (type == TYPE_REL) {
-    isBranch = true;
-    pcrel = insn.startLocation + insn.length;
+    // isBranch = true;
+    // pcrel = insn.startLocation + insn.length;
     switch (operand.encoding) {
     default:
       break;
@@ -1987,10 +1988,10 @@ static void translateImmediate(MCInst &mcInst, uint64_t immediate,
     break;
   }
 
-  if (!Dis->tryAddingSymbolicOperand(
-          mcInst, immediate + pcrel, insn.startLocation, isBranch,
-          insn.immediateOffset, insn.immediateSize, insn.length))
-    mcInst.addOperand(MCOperand::createImm(immediate));
+  // if (!Dis->tryAddingSymbolicOperand(
+  //         mcInst, immediate + pcrel, insn.startLocation, isBranch,
+  //         insn.immediateOffset, insn.immediateSize, insn.length))
+  mcInst.addOperand(MCOperand::createImm(immediate));
 
   if (type == TYPE_MOFFS) {
     MCOperand segmentReg;
@@ -2000,12 +2001,12 @@ static void translateImmediate(MCInst &mcInst, uint64_t immediate,
 }
 
 /// translateRMRegister - Translates a register stored in the R/M field of the
-///   ModR/M byte to its LLVM equivalent and appends it to an MCInst.
-/// @param mcInst       - The MCInst to append to.
+///   ModR/M byte to its LLVM equivalent and appends it to an MCInstGPU.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param insn         - The internal instruction to extract the R/M field
 ///                       from.
 /// @return             - 0 on success; -1 otherwise
-static bool translateRMRegister(MCInst &mcInst, InternalInstruction &insn) {
+static bool translateRMRegister(MCInstGPU &mcInst, InternalInstruction &insn) {
   if (insn.eaBase == EA_BASE_sib || insn.eaBase == EA_BASE_sib64) {
     debug("A R/M register operand may not have a SIB byte");
     return true;
@@ -2037,17 +2038,17 @@ static bool translateRMRegister(MCInst &mcInst, InternalInstruction &insn) {
 
 /// translateRMMemory - Translates a memory operand stored in the Mod and R/M
 ///   fields of an internal instruction (and possibly its SIB byte) to a memory
-///   operand in LLVM's format, and appends it to an MCInst.
+///   operand in LLVM's format, and appends it to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param insn         - The instruction to extract Mod, R/M, and SIB fields
 ///                       from.
 /// @param ForceSIB     - The instruction must use SIB.
 /// @return             - 0 on success; nonzero otherwise
-static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
+static bool translateRMMemory(MCInstGPU &mcInst, InternalInstruction &insn,
                               const MCDisassembler *Dis,
                               bool ForceSIB = false) {
-  // Addresses in an MCInst are represented as five operands:
+  // Addresses in an MCInstGPU are represented as five operands:
   //   1. basereg       (register)  The R/M base, or (if there is a SIB) the
   //                                SIB base
   //   2. scaleamount   (immediate) 1, or (if there is a SIB) the specified
@@ -2064,7 +2065,7 @@ static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
   MCOperand indexReg;
   MCOperand displacement;
   MCOperand segmentReg;
-  uint64_t pcrel = 0;
+  // uint64_t pcrel = 0;
 
   if (insn.eaBase == EA_BASE_sib || insn.eaBase == EA_BASE_sib64) {
     if (insn.sibBase != SIB_BASE_NONE) {
@@ -2128,10 +2129,10 @@ static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
         return true;
       }
       if (insn.mode == MODE_64BIT) {
-        pcrel = insn.startLocation + insn.length;
-        Dis->tryAddingPcLoadReferenceComment(insn.displacement + pcrel,
-                                             insn.startLocation +
-                                                 insn.displacementOffset);
+        // pcrel = insn.startLocation + insn.length;
+        // Dis->tryAddingPcLoadReferenceComment(insn.displacement + pcrel,
+        //                                      insn.startLocation +
+        //                                          insn.displacementOffset);
         // Section 2.2.1.6
         baseReg =
             MCOperand::createReg(insn.addressSize == 4 ? X86::EIP : X86::RIP);
@@ -2192,26 +2193,26 @@ static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
   mcInst.addOperand(scaleAmount);
   mcInst.addOperand(indexReg);
 
-  const uint8_t dispSize =
-      (insn.eaDisplacement == EA_DISP_NONE) ? 0 : insn.displacementSize;
+  // const uint8_t dispSize =
+  //     (insn.eaDisplacement == EA_DISP_NONE) ? 0 : insn.displacementSize;
 
-  if (!Dis->tryAddingSymbolicOperand(
-          mcInst, insn.displacement + pcrel, insn.startLocation, false,
-          insn.displacementOffset, dispSize, insn.length))
-    mcInst.addOperand(displacement);
+  // if (!Dis->tryAddingSymbolicOperand(
+  //         mcInst, insn.displacement + pcrel, insn.startLocation, false,
+  //         insn.displacementOffset, dispSize, insn.length))
+  mcInst.addOperand(displacement);
   mcInst.addOperand(segmentReg);
   return false;
 }
 
 /// translateRM - Translates an operand stored in the R/M (and possibly SIB)
-///   byte of an instruction to LLVM form, and appends it to an MCInst.
+///   byte of an instruction to LLVM form, and appends it to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param operand      - The operand, as stored in the descriptor table.
 /// @param insn         - The instruction to extract Mod, R/M, and SIB fields
 ///                       from.
 /// @return             - 0 on success; nonzero otherwise
-static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
+static bool translateRM(MCInstGPU &mcInst, const OperandSpecifier &operand,
                         InternalInstruction &insn, const MCDisassembler *Dis) {
   switch (operand.type) {
   default:
@@ -2244,21 +2245,21 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
 }
 
 /// translateFPRegister - Translates a stack position on the FPU stack to its
-///   LLVM form, and appends it to an MCInst.
+///   LLVM form, and appends it to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param stackPos     - The stack position to translate.
-static void translateFPRegister(MCInst &mcInst, uint8_t stackPos) {
+static void translateFPRegister(MCInstGPU &mcInst, uint8_t stackPos) {
   mcInst.addOperand(MCOperand::createReg(X86::ST0 + stackPos));
 }
 
 /// translateMaskRegister - Translates a 3-bit mask register number to
-///   LLVM form, and appends it to an MCInst.
+///   LLVM form, and appends it to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param maskRegNum   - Number of mask register from 0 to 7.
 /// @return             - false on success; true otherwise.
-static bool translateMaskRegister(MCInst &mcInst, uint8_t maskRegNum) {
+static bool translateMaskRegister(MCInstGPU &mcInst, uint8_t maskRegNum) {
   if (maskRegNum >= 8) {
     debug("Invalid mask register number");
     return true;
@@ -2269,80 +2270,88 @@ static bool translateMaskRegister(MCInst &mcInst, uint8_t maskRegNum) {
 }
 
 /// translateOperand - Translates an operand stored in an internal instruction
-///   to LLVM's format and appends it to an MCInst.
+///   to LLVM's format and appends it to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to append to.
+/// @param mcInst       - The MCInstGPU to append to.
 /// @param operand      - The operand, as stored in the descriptor table.
 /// @param insn         - The internal instruction.
 /// @return             - false on success; true otherwise.
-static inline bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
-                             InternalInstruction &insn,
-                             const MCDisassembler *Dis) {
-  switch (operand.encoding) {
-  default:
-    debug("Unhandled operand encoding during translation");
-    return true;
-  case ENCODING_REG:
-    translateRegister(mcInst, insn.reg);
-    return false;
-  case ENCODING_WRITEMASK:
-    return translateMaskRegister(mcInst, insn.writemask);
-  case ENCODING_SIB:
-  CASE_ENCODING_RM:
-  CASE_ENCODING_VSIB:
-    return translateRM(mcInst, operand, insn, Dis);
-  case ENCODING_IB:
-  case ENCODING_IW:
-  case ENCODING_ID:
-  case ENCODING_IO:
-  case ENCODING_Iv:
-  case ENCODING_Ia:
-    translateImmediate(mcInst, insn.immediates[insn.numImmediatesTranslated++],
-                       operand, insn, Dis);
-    return false;
-  case ENCODING_IRC:
-    mcInst.addOperand(MCOperand::createImm(insn.RC));
-    return false;
-  case ENCODING_SI:
-    return translateSrcIndex(mcInst, insn);
-  case ENCODING_DI:
-    return translateDstIndex(mcInst, insn);
-  case ENCODING_RB:
-  case ENCODING_RW:
-  case ENCODING_RD:
-  case ENCODING_RO:
-  case ENCODING_Rv:
-    translateRegister(mcInst, insn.opcodeRegister);
-    return false;
-  case ENCODING_CF:
-    mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
-    return false;
-  case ENCODING_CC:
-    if (isCCMPOrCTEST(&insn))
-      mcInst.addOperand(MCOperand::createImm(insn.immediates[2]));
-    else
+static inline bool translateOperand(MCInstGPU &mcInst,
+                                    const OperandSpecifier &operand,
+                                    InternalInstruction &insn,
+                                    const MCDisassembler *Dis) {
+  OperandSpecifier currentOperand = operand;
+  while (true) {
+    switch (currentOperand.encoding) {
+    default:
+      debug("Unhandled operand encoding during translation");
+      return true;
+    case ENCODING_REG:
+      translateRegister(mcInst, insn.reg);
+      return false;
+    case ENCODING_WRITEMASK:
+      return translateMaskRegister(mcInst, insn.writemask);
+    case ENCODING_SIB:
+    CASE_ENCODING_RM:
+    CASE_ENCODING_VSIB:
+      return translateRM(mcInst, operand, insn, Dis);
+    case ENCODING_IB:
+    case ENCODING_IW:
+    case ENCODING_ID:
+    case ENCODING_IO:
+    case ENCODING_Iv:
+    case ENCODING_Ia:
+      translateImmediate(mcInst,
+                         insn.immediates[insn.numImmediatesTranslated++],
+                         operand, insn, Dis);
+      return false;
+    case ENCODING_IRC:
+      mcInst.addOperand(MCOperand::createImm(insn.RC));
+      return false;
+    case ENCODING_SI:
+      return translateSrcIndex(mcInst, insn);
+    case ENCODING_DI:
+      return translateDstIndex(mcInst, insn);
+    case ENCODING_RB:
+    case ENCODING_RW:
+    case ENCODING_RD:
+    case ENCODING_RO:
+    case ENCODING_Rv:
+      translateRegister(mcInst, insn.opcodeRegister);
+      return false;
+    case ENCODING_CF:
       mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
-    return false;
-  case ENCODING_FP:
-    translateFPRegister(mcInst, insn.modRM & 7);
-    return false;
-  case ENCODING_VVVV:
-    translateRegister(mcInst, insn.vvvv);
-    return false;
-  case ENCODING_DUP:
-    return translateOperand(mcInst, insn.operands[operand.type - TYPE_DUP0],
-                            insn, Dis);
+      return false;
+    case ENCODING_CC:
+      if (isCCMPOrCTEST(&insn))
+        mcInst.addOperand(MCOperand::createImm(insn.immediates[2]));
+      else
+        mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
+      return false;
+    case ENCODING_FP:
+      translateFPRegister(mcInst, insn.modRM & 7);
+      return false;
+    case ENCODING_VVVV:
+      translateRegister(mcInst, insn.vvvv);
+      return false;
+    case ENCODING_DUP:
+      currentOperand = insn.operands[currentOperand.type - TYPE_DUP0];
+      // return translateOperand(mcInst, insn.operands[operand.type -
+      // TYPE_DUP0],
+      //                         insn, Dis);
+    }
   }
 }
 
 /// translateInstruction - Translates an internal instruction and all its
-///   operands to an MCInst.
+///   operands to an MCInstGPU.
 ///
-/// @param mcInst       - The MCInst to populate with the instruction's data.
+/// @param mcInst       - The MCInstGPU to populate with the instruction's data.
 /// @param insn         - The internal instruction.
 /// @return             - false on success; true otherwise.
-static inline bool translateInstruction(MCInst &mcInst, InternalInstruction &insn,
-                                 const MCDisassembler *Dis) {
+static inline bool translateInstruction(MCInstGPU &mcInst,
+                                        InternalInstruction &insn,
+                                        const MCDisassembler *Dis) {
   if (!insn.spec) {
     debug("Instruction has no specification");
     return true;
