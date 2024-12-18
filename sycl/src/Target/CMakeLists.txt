@@ -1,9 +1,22 @@
 file(GLOB children *)
 set(DISASSEMBLER_SOURCE)
+
+# Define the list of excluded directories
+set(EXCLUDED_DIRS "ARM")
+
 foreach(child ${children})
     if(IS_DIRECTORY ${child})
-        message(STATUS "Adding subdirectory: ${child}")
-        LIST(APPEND DISASSEMBLER_SOURCE ${child}/Disassembler.cpp)
+        # Extract the last name of the directory
+        get_filename_component(dirname ${child} NAME)
+
+        # Check if the last name is in the list of excluded directories
+        list(FIND EXCLUDED_DIRS ${dirname} index)
+        if(${index} EQUAL -1)
+            message(STATUS "Adding subdirectory: ${child} (last name: ${dirname})")
+            list(APPEND DISASSEMBLER_SOURCE ${child}/Disassembler.cpp)
+        else()
+            message(STATUS "Excluding directory: ${child} (last name: ${dirname})")
+        endif()
     endif()
 endforeach()
 
