@@ -26,7 +26,7 @@ namespace llvm {
 
 /// Instances of this class represent a single low-level machine
 /// instruction.
-template<unsigned N=8>
+template<unsigned N>
 class MCInstGPU {
 
 public:

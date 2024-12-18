@@ -9,8 +9,8 @@ using namespace llvm;
 
 template <typename InsnType, unsigned N>
 DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI,
-                               unsigned &DecodeIdx, InsnType insn,
-                               uint64_t Address, const MCDisassembler *DisAsm,
+                               InsnType insn, uint64_t Address,
+                               const MCDisassembler *DisAsm,
                                const FeatureBitset &Bits) {
   const uint8_t *Ptr = DecodeTable;
   uint64_t CurFieldValue = 0;
@@ -80,7 +80,7 @@ DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI,
       // Decode the Opcode value.
       unsigned Opc = decodeULEB128(++Ptr, &Len);
       Ptr += Len;
-      DecodeIdx = decodeULEB128(Ptr, &Len);
+      unsigned DecodeIdx = decodeULEB128(Ptr, &Len);
       Ptr += Len;
 
       //   MI.clear();
@@ -95,7 +95,7 @@ DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI,
       // Decode the Opcode value.
       unsigned Opc = decodeULEB128(++Ptr, &Len);
       Ptr += Len;
-      DecodeIdx = decodeULEB128(Ptr, &Len);
+      unsigned DecodeIdx = decodeULEB128(Ptr, &Len);
       Ptr += Len;
       // NumToSkip is a plain 24-bit integer.
       unsigned NumToSkip = *Ptr++;
@@ -103,7 +103,7 @@ DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI,
       NumToSkip |= (*Ptr++) << 16;
 
       // Perform the decode operation.
-      MCInstGPU TmpMI;
+      MCInstGPU<N> TmpMI;
       TmpMI.setOpcode(Opc);
       bool DecodeComplete = true;
       S = decodeToMCInst(S, DecodeIdx, insn, TmpMI, Address, DisAsm,

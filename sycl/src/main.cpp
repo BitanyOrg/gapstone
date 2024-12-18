@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "Disassemblers.h"
-#include "MCInstGPU.h"
 #include "SyclDisassembler.h"
 #include <LIEF/LIEF.hpp>
 #include <access/access.hpp>
@@ -95,20 +94,21 @@ disassemble(std::unique_ptr<llvm::MCDisassembler> &disassembler,
   return insn;
 }
 
-std::vector<gapstone::InstInfo>
+std::unique_ptr<gapstone::InstInfoContainer>
 batch_disassemble(std::unique_ptr<llvm::MCDisassembler> &disassembler,
                   const llvm::ArrayRef<uint8_t> &data, uint64_t base_addr,
                   int step_size) {
   auto tasks = data.size() / step_size;
-  std::vector<gapstone::InstInfo> insts(tasks);
-  for (int i = 0; i < tasks; i += step_size) {
+  // std::vector<gapstone::InstInfo> insts(tasks);
+  auto insts_info = std::make_unique<gapstone::InstInfoContainerCPU>(tasks);
+  for (int i = 0; i < tasks; ++i) {
     auto offset = i * step_size;
     uint64_t insn_size = 0;
-    insts[i].status = disassembler->getInstruction(
-        insts[i].inst, insn_size, data.slice(offset), base_addr + offset,
+    insts_info->status[i] = disassembler->getInstruction(
+        insts_info->insts[i], insn_size, data.slice(offset), base_addr + offset,
         llvm::nulls());
   }
-  return insts;
+  return insts_info;
 }
 
 int main(int argc, char **argv) {
@@ -196,26 +196,30 @@ int main(int argc, char **argv) {
     auto base_addr = section.virtual_address();
     uint64_t len = section.content().size();
     auto content = elf->get_content_from_virtual_address(base_addr, len);
-    std::vector<gapstone::InstInfo> insns;
+    std::unique_ptr<gapstone::InstInfoContainer> insts_info;
     if (args->naive) {
       const llvm::ArrayRef<uint8_t> data(content.begin(), content.end());
-      insns = batch_disassemble(disassembler, data, base_addr, args->step_size);
+      insts_info =
+          batch_disassemble(disassembler, data, base_addr, args->step_size);
     } else {
       std::vector<uint8_t> content_vector{content.begin(), content.end()};
-      insns = gapstone_disassembler->batch_disassemble(
+      insts_info = gapstone_disassembler->batch_disassemble(
           base_addr, content_vector, args->step_size);
     }
     if (args->print) {
-      for (int i = 0; i < insns.size(); ++i) {
-        if (insns[i].status != llvm::MCDisassembler::DecodeStatus::Success) {
+      auto tasks = content.size() / args->step_size;
+      for (int i = 0; i < tasks; ++i) {
+        if (insts_info->status[i] !=
+            llvm::MCDisassembler::DecodeStatus::Success) {
           continue;
         }
         std::cout << "0x" << std::hex << base_addr + args->step_size * i << " "
                   << std::flush;
         std::string insn_str;
         llvm::raw_string_ostream str_stream(insn_str);
+        auto inst = insts_info->getMCInst(i);
         instruction_printer->printInst(
-            &insns[i].inst,
+            &inst,
             /* Address */ base_addr + args->step_size * i,
             /* Annot */ "", *subtarget_info, str_stream);
         std::cout << insn_str << std::endl;
