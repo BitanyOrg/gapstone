@@ -108,5 +108,74 @@ public:
         }
     }
 
-    // No erase/insert due to no dynamic memory
+    iterator insert(const_iterator pos, const T& value) {
+        size_t index = pos - begin();
+        if (current_size < Capacity && index <= current_size) {
+            for (size_t i = current_size; i > index; --i) {
+                data[i] = data[i - 1];
+            }
+            data[index] = value;
+            ++current_size;
+            return begin() + index;
+        }
+        return end();
+    }
+
+    iterator insert(const_iterator pos, size_t count, const T& value) {
+      size_t index = pos - begin();
+      if (index <= current_size) {
+        size_t num_to_insert = std::min(count, Capacity - current_size);
+        if (num_to_insert > 0) {
+          size_t num_to_move = current_size - index;
+          
+          // Move existing elements to make space
+          for (size_t i = 0; i < num_to_move; ++i) {
+            if (current_size + num_to_insert - 1 - i >= Capacity) break; // Prevent out-of-bounds write
+            data[current_size + num_to_insert - 1 - i] = data[current_size - 1 - i];
+          }
+          
+          // Fill the inserted range with the value
+          std::fill(data.begin() + index, data.begin() + index + num_to_insert, value);
+          
+          current_size += num_to_insert;
+          return begin() + index;
+        }
+      }
+      return end();
+    }
+
+
+    template <typename InputIt>
+    iterator insert(const_iterator pos, InputIt first, InputIt last) {
+        size_t index = pos - begin();
+        if (index <= current_size) {
+            size_t num_to_insert = 0;
+            InputIt temp_first = first;
+            while(temp_first != last && current_size + num_to_insert < Capacity){
+                ++num_to_insert;
+                ++temp_first;
+            }
+
+            if (num_to_insert > 0) {
+              size_t num_to_move = current_size - index;
+              
+              // Move existing elements
+              for (size_t i = 0; i < num_to_move; ++i) {
+                if(current_size + num_to_insert - 1 - i >= Capacity) break; // Prevent out-of-bounds write
+                data[current_size + num_to_insert - 1 - i] = data[current_size - 1 - i];
+              }
+
+              // Copy elements from the input range
+              std::copy(first, first + num_to_insert, data.begin() + index);
+              
+              current_size += num_to_insert;
+              return begin() + index;
+            }
+        }
+        return end();
+    }
+
+    iterator insert(const_iterator pos, const std::initializer_list<T>& ilist){
+        return insert(pos, ilist.begin(), ilist.end());
+    }
 };
