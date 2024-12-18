@@ -12,7 +12,8 @@ using DecodeStatus = llvm::MCDisassembler::DecodeStatus;
 namespace gapstone {
 
 namespace X86Impl {
-static DecodeStatus disassemble_instruction(MCInstGPU<8> &Instr, uint64_t &Size,
+template <unsigned N>
+static DecodeStatus disassemble_instruction(MCInstGPU<N> &Instr, uint64_t &Size,
                                             ArrayRef<uint8_t> Bytes,
                                             uint64_t Address,
                                             const FeatureBitset &Bits) {
@@ -68,12 +69,13 @@ static DecodeStatus disassemble_instruction(MCInstGPU<8> &Instr, uint64_t &Size,
   return (!Ret) ? DecodeStatus::Success : DecodeStatus::Fail;
 }
 
+template <unsigned N>
 static std::vector<InstInfo>
 disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
                  uint64_t base_addr, std::vector<uint8_t> &content,
                  int step_size) {
   auto tasks = content.size() / step_size;
-  MCInstGPU<8> *gpu_insts = sycl::malloc_shared<MCInstGPU<8>>(tasks, q);
+  MCInstGPU<N> *gpu_insts = sycl::malloc_shared<MCInstGPU<N>>(tasks, q);
   DecodeStatus *status = sycl::malloc_shared<DecodeStatus>(tasks, q);
   uint8_t *shared_content = sycl::malloc_shared<uint8_t>(content.size(), q);
   q.memcpy(shared_content, content.data(), content.size());
@@ -95,8 +97,14 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
   q.wait();
   std::vector<InstInfo> insts(tasks);
   for (int i = 0; i < tasks; ++i) {
+    if (gpu_insts[i].ActualNumOperands != gpu_insts[i].getNumOperands()) {
+      std::cout << "Operands overflow for address " << std::hex
+                << base_addr + i * step_size << std::endl;
+      std::cout << "Actual: " << gpu_insts[i].ActualNumOperands << " Getting "
+                << gpu_insts[i].getNumOperands() << std::endl;
+    }
     insts[i].inst.setOpcode(gpu_insts[i].getOpcode());
-    for (auto &operand: gpu_insts[i]) {
+    for (auto &operand : gpu_insts[i]) {
       insts[i].inst.addOperand(operand);
     }
     insts[i].status = status[i];
@@ -107,7 +115,7 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
 
 std::vector<InstInfo> X86Disassembler::batch_disassemble(
     uint64_t base_addr, std::vector<uint8_t> &content, int step_size) {
-  return X86Impl::disassemble_impl(q, MCDisassembler, base_addr, content,
-                                   step_size);
+  return X86Impl::disassemble_impl<10>(q, MCDisassembler, base_addr, content,
+                                       step_size);
 }
 } // namespace gapstone
