@@ -43,7 +43,7 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
                  uint64_t base_addr, std::vector<uint8_t> &content,
                  int step_size) {
   auto tasks = content.size() / step_size;
-  llvm::MCInstGPU<8> *results = sycl::malloc_shared<llvm::MCInstGPU<8>>(tasks, q);
+  llvm::MCInstGPU<8> *gpu_insts = sycl::malloc_shared<llvm::MCInstGPU<8>>(tasks, q);
   unsigned *decodeIdx = sycl::malloc_shared<unsigned>(tasks, q);
   uint32_t *insns = sycl::malloc_shared<uint32_t>(tasks, q);
   DecodeStatus *status = sycl::malloc_shared<DecodeStatus>(tasks, q);
@@ -60,17 +60,18 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
       uint64_t offset = i * buffer_size / tasks;
       llvm::ArrayRef<uint8_t> array_ref(shared_content + offset, 4);
       status[i] =
-          disassemble_instruction(results[i], decodeIdx[i], insns[i], size,
+          disassemble_instruction(gpu_insts[i], decodeIdx[i], insns[i], size,
                                   array_ref, base_addr + offset, nullptr, Bits);
     });
   });
   q.wait();
   std::vector<InstInfo> insts(tasks);
   for (int i = 0; i < tasks; ++i) {
-    bool DecodeComplete = true;
-    insts[i].inst.setOpcode(results[i].getOpcode());
-    insts[i].status = decodeToMCInst(status[i], decodeIdx[i], insns[i], insts[i].inst,
-                   base_addr + 4 * i, &MCDisassembler, DecodeComplete);
+    insts[i].inst.setOpcode(gpu_insts[i].getOpcode());
+    for (auto &operand: gpu_insts[i]) {
+      insts[i].inst.addOperand(operand);
+    }
+    insts[i].status = status[i];
   }
   return insts;
 }

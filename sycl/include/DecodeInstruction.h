@@ -7,11 +7,10 @@ using DecodeStatus = llvm::MCDisassembler::DecodeStatus;
 using namespace llvm;
 // static bool checkDecoderPredicate(unsigned Idx, const FeatureBitset &Bits);
 
-
-
 template <typename InsnType, unsigned N>
-DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI, unsigned &DecodeIdx,
-                               InsnType insn, uint64_t Address, const MCDisassembler *DisAsm,
+DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI,
+                               unsigned &DecodeIdx, InsnType insn,
+                               uint64_t Address, const MCDisassembler *DisAsm,
                                const FeatureBitset &Bits) {
   const uint8_t *Ptr = DecodeTable;
   uint64_t CurFieldValue = 0;
@@ -86,9 +85,9 @@ DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI, un
 
       //   MI.clear();
       MI.setOpcode(Opc);
-      // bool DecodeComplete = true;
-      // S = decodeToMCInst(S, DecodeIdx, insn, MI, Address, DisAsm,
-      //                    DecodeComplete);
+      bool DecodeComplete = true;
+      S = decodeToMCInst(S, DecodeIdx, insn, MI, Address, DisAsm,
+                         DecodeComplete);
       return S;
     }
     case MCD::OPC_TryDecode: {
@@ -107,8 +106,8 @@ DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI, un
       MCInstGPU TmpMI;
       TmpMI.setOpcode(Opc);
       bool DecodeComplete = true;
-      // S = decodeToMCInst(S, DecodeIdx, insn, TmpMI, Address, DisAsm,
-      //                    DecodeComplete);
+      S = decodeToMCInst(S, DecodeIdx, insn, TmpMI, Address, DisAsm,
+                         DecodeComplete);
       if (DecodeComplete) {
         // Decoding complete.
         MI = TmpMI;
