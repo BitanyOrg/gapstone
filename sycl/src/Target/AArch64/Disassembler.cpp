@@ -1,5 +1,5 @@
 #include "AArch64/Decode.h"
-#include "AArch64/GapstoneDisassembler.h"
+#include "AArch64/AArch64SyclDisassembler.h"
 #include "DecodeInstruction.h"
 #include "MCInstGPU.h"
 #include "llvm/ADT/ArrayRef.h"

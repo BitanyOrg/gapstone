@@ -1,6 +1,6 @@
 #include "Disassembler/X86DisassemblerDecoder.h"
 #include "X86/Decode.h"
-#include "X86/GapstoneDisassembler.h"
+#include "X86/X86SyclDisassembler.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
 #include "llvm/MC/MCInst.h"

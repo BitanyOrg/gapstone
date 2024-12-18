@@ -1,6 +1,6 @@
 #include "Disassemblers.h"
-#include "AArch64/GapstoneDisassembler.h"
-#include "X86/GapstoneDisassembler.h"
+#include "AArch64/AArch64SyclDisassembler.h"
+#include "X86/X86SyclDisassembler.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/MC/MCSubtargetInfo.h"
