@@ -12,7 +12,7 @@ using DecodeStatus = llvm::MCDisassembler::DecodeStatus;
 namespace gapstone {
 
 namespace X86Impl {
-static DecodeStatus disassemble_instruction(MCInstGPU &Instr, uint64_t &Size,
+static DecodeStatus disassemble_instruction(MCInstGPU<8> &Instr, uint64_t &Size,
                                             ArrayRef<uint8_t> Bytes,
                                             uint64_t Address,
                                             const FeatureBitset &Bits) {
@@ -73,7 +73,7 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
                  uint64_t base_addr, std::vector<uint8_t> &content,
                  int step_size) {
   auto tasks = content.size() / step_size;
-  MCInstGPU *gpu_insts = sycl::malloc_shared<MCInstGPU>(tasks, q);
+  MCInstGPU<8> *gpu_insts = sycl::malloc_shared<MCInstGPU<8>>(tasks, q);
   DecodeStatus *status = sycl::malloc_shared<DecodeStatus>(tasks, q);
   uint8_t *shared_content = sycl::malloc_shared<uint8_t>(content.size(), q);
   q.memcpy(shared_content, content.data(), content.size());
@@ -96,7 +96,6 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
   std::vector<InstInfo> insts(tasks);
   for (int i = 0; i < tasks; ++i) {
     insts[i].inst.setOpcode(gpu_insts[i].getOpcode());
-    // std::copy(gpu_insts[i].begin(), gpu_insts[i].end(), insts[i].inst.begin());
     for (auto &operand: gpu_insts[i]) {
       insts[i].inst.addOperand(operand);
     }

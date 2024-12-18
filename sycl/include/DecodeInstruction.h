@@ -9,8 +9,8 @@ using namespace llvm;
 
 
 
-template <typename InsnType>
-DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU &MI, unsigned &DecodeIdx,
+template <typename InsnType, unsigned N>
+DecodeStatus decodeInstruction(const uint8_t DecodeTable[], MCInstGPU<N> &MI, unsigned &DecodeIdx,
                                InsnType insn, uint64_t Address, const MCDisassembler *DisAsm,
                                const FeatureBitset &Bits) {
   const uint8_t *Ptr = DecodeTable;

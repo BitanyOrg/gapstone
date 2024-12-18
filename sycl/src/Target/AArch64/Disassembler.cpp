@@ -10,7 +10,7 @@
 #include <vector>
 namespace gapstone {
 namespace AArch64Impl {
-static DecodeStatus disassemble_instruction(MCInstGPU &MI, unsigned &DecodeIdx,
+static DecodeStatus disassemble_instruction(MCInstGPU<8> &MI, unsigned &DecodeIdx,
                                             uint32_t &Insn, uint64_t &Size,
                                             ArrayRef<uint8_t> Bytes,
                                             uint64_t Address,
@@ -43,7 +43,7 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
                  uint64_t base_addr, std::vector<uint8_t> &content,
                  int step_size) {
   auto tasks = content.size() / step_size;
-  llvm::MCInstGPU *results = sycl::malloc_shared<llvm::MCInstGPU>(tasks, q);
+  llvm::MCInstGPU<8> *results = sycl::malloc_shared<llvm::MCInstGPU<8>>(tasks, q);
   unsigned *decodeIdx = sycl::malloc_shared<unsigned>(tasks, q);
   uint32_t *insns = sycl::malloc_shared<uint32_t>(tasks, q);
   DecodeStatus *status = sycl::malloc_shared<DecodeStatus>(tasks, q);

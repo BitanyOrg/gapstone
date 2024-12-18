@@ -26,6 +26,7 @@ namespace llvm {
 
 /// Instances of this class represent a single low-level machine
 /// instruction.
+template<unsigned N=8>
 class MCInstGPU {
 
 public:
@@ -36,7 +37,6 @@ public:
   unsigned Flags = 0;
 
   SMLoc Loc;
-  static constexpr unsigned N = 8;
   StaticVector<MCOperand, N> Operands;
 
   MCInstGPU() = default;
@@ -56,8 +56,8 @@ public:
 
   void addOperand(const MCOperand Op) { Operands.push_back(Op); }
 
-  using iterator = StaticVector<MCOperand, N>::iterator;
-  using const_iterator = StaticVector<MCOperand, N>::const_iterator;
+  using iterator = typename StaticVector<MCOperand, N>::iterator;
+  using const_iterator = typename StaticVector<MCOperand, N>::const_iterator;
 
   void clear() { Operands.clear(); }
   size_t size() const { return Operands.size(); }
