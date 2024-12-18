@@ -39,6 +39,8 @@ public:
   SMLoc Loc;
   StaticVector<MCOperand, N> Operands;
 
+  unsigned ActualNumOperands;
+
   MCInstGPU() = default;
 
   void setOpcode(unsigned Op) { Opcode = Op; }
@@ -54,7 +56,7 @@ public:
   MCOperand &getOperand(unsigned i) { return Operands[i]; }
   unsigned getNumOperands() const { return Operands.size(); }
 
-  void addOperand(const MCOperand Op) { Operands.push_back(Op); }
+  void addOperand(const MCOperand Op) { Operands.push_back(Op); ++ActualNumOperands; }
 
   using iterator = typename StaticVector<MCOperand, N>::iterator;
   using const_iterator = typename StaticVector<MCOperand, N>::const_iterator;
