@@ -89,7 +89,7 @@ llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_LINK_COMPONENTS})
 
 # set(LLVM_LIBS LLVMSupport LLVMTargetParser LLVMMC)
 
-set (CXX_FLAGS ${CXX_FLAGS} -Wno-language-extension-token)
+set (CXX_FLAGS ${CXX_FLAGS} -Wno-language-extension-token -Wno-return-type)
 
 if(WITHCUDA)
     set(CXX_FLAGS ${CXX_FLAGS} -fsycl-targets=nvptx64-nvidia-cuda,spir64 -Xsycl-target-backend=nvptx64-nvidia-cuda --cuda-gpu-arch=${CUDA_GPU_ARCH})

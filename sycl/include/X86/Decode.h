@@ -55,7 +55,7 @@
 //
 // 7. As the last step, the disassembler translates the instruction information
 //    and operands into a format understandable by the client - in this case, an
-//    MCInstGPU for use by the MC infrastructure.
+//    MCInst for use by the MC infrastructure.
 //
 // The disassembler is broken broadly into two parts: the table emitter that
 // emits the instruction decode tables discussed above during compilation, and
@@ -73,6 +73,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "DisableUtils.h"
 #include "Disassembler/X86DisassemblerDecoder.h"
 #include "MCInstGPU.h"
 #include "MCTargetDesc/X86BaseInfo.h"
@@ -92,23 +93,22 @@
 using namespace llvm;
 using namespace llvm::X86Disassembler;
 using MCInstGPU_X86 = MCInstGPU<10>;
+#define MCInst MCInstGPU_X86
 
 // #define DEBUG_TYPE "x86-disassembler"
 #define debug(s) LLVM_DEBUG(dbgs() << __LINE__ << ": " << s);
 
-namespace gapstoneX86 {
+namespace gapstone {
+namespace X86Table {
 #define GET_INSTRINFO_MC_DESC
 #include "X86GenInstrInfo.inc"
-} // namespace gapstoneX86
+} // namespace X86Table
+} // namespace gapstone
 static const char *getInstrNameById(uint16_t instructionID) {
-  return &gapstoneX86::llvm::X86InstrNameData
-      [gapstoneX86::llvm::X86InstrNameIndices[instructionID]];
+  return &gapstone::X86Table::llvm::X86InstrNameData
+      [gapstone::X86Table::llvm::X86InstrNameIndices[instructionID]];
 }
 
-#undef LLVM_DEBUG
-#define LLVM_DEBUG(msg) ;
-#undef llvm_unreachable
-#define llvm_unreachable(msg) ;
 // Specifies whether a ModR/M byte is needed and (if so) which
 // instruction each possible value of the ModR/M byte corresponds to.  Once
 // this information is known, we have narrowed down to a single instruction.
@@ -1826,7 +1826,7 @@ enum {
 
 } // namespace llvm
 
-static bool translateInstruction(MCInstGPU_X86 &target, InternalInstruction &source,
+static bool translateInstruction(MCInst &target, InternalInstruction &source,
                                  const MCDisassembler *Dis);
 
 //
@@ -1834,11 +1834,11 @@ static bool translateInstruction(MCInstGPU_X86 &target, InternalInstruction &sou
 //
 
 /// translateRegister - Translates an internal register to the appropriate LLVM
-///   register, and appends it as an operand to an MCInstGPU.
+///   register, and appends it as an operand to an MCInst.
 ///
-/// @param mcInst     - The MCInstGPU to append to.
+/// @param mcInst     - The MCInst to append to.
 /// @param reg        - The Reg to append.
-static void translateRegister(MCInstGPU_X86 &mcInst, Reg reg) {
+static void translateRegister(MCInst &mcInst, Reg reg) {
 #define ENTRY(x) X86::x,
   static constexpr MCPhysReg llvmRegnums[] = {ALL_REGS};
 #undef ENTRY
@@ -1851,11 +1851,11 @@ static const uint8_t segmentRegnums[SEG_OVERRIDE_max] = {
     0, // SEG_OVERRIDE_NONE
     X86::CS, X86::SS, X86::DS, X86::ES, X86::FS, X86::GS};
 
-/// translateSrcIndex   - Appends a source index operand to an MCInstGPU.
+/// translateSrcIndex   - Appends a source index operand to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param insn         - The internal instruction.
-static bool translateSrcIndex(MCInstGPU_X86 &mcInst, InternalInstruction &insn) {
+static bool translateSrcIndex(MCInst &mcInst, InternalInstruction &insn) {
   unsigned baseRegNo;
 
   if (insn.mode == MODE_64BIT)
@@ -1875,12 +1875,12 @@ static bool translateSrcIndex(MCInstGPU_X86 &mcInst, InternalInstruction &insn) 
   return false;
 }
 
-/// translateDstIndex   - Appends a destination index operand to an MCInstGPU.
+/// translateDstIndex   - Appends a destination index operand to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param insn         - The internal instruction.
 
-static bool translateDstIndex(MCInstGPU_X86 &mcInst, InternalInstruction &insn) {
+static bool translateDstIndex(MCInst &mcInst, InternalInstruction &insn) {
   unsigned baseRegNo;
 
   if (insn.mode == MODE_64BIT)
@@ -1896,13 +1896,13 @@ static bool translateDstIndex(MCInstGPU_X86 &mcInst, InternalInstruction &insn) 
   return false;
 }
 
-/// translateImmediate  - Appends an immediate operand to an MCInstGPU.
+/// translateImmediate  - Appends an immediate operand to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param immediate    - The immediate value to append.
 /// @param operand      - The operand, as stored in the descriptor table.
 /// @param insn         - The internal instruction.
-static void translateImmediate(MCInstGPU_X86 &mcInst, uint64_t immediate,
+static void translateImmediate(MCInst &mcInst, uint64_t immediate,
                                const OperandSpecifier &operand,
                                InternalInstruction &insn,
                                const MCDisassembler *Dis) {
@@ -2002,12 +2002,12 @@ static void translateImmediate(MCInstGPU_X86 &mcInst, uint64_t immediate,
 }
 
 /// translateRMRegister - Translates a register stored in the R/M field of the
-///   ModR/M byte to its LLVM equivalent and appends it to an MCInstGPU.
-/// @param mcInst       - The MCInstGPU to append to.
+///   ModR/M byte to its LLVM equivalent and appends it to an MCInst.
+/// @param mcInst       - The MCInst to append to.
 /// @param insn         - The internal instruction to extract the R/M field
 ///                       from.
 /// @return             - 0 on success; -1 otherwise
-static bool translateRMRegister(MCInstGPU_X86 &mcInst, InternalInstruction &insn) {
+static bool translateRMRegister(MCInst &mcInst, InternalInstruction &insn) {
   if (insn.eaBase == EA_BASE_sib || insn.eaBase == EA_BASE_sib64) {
     debug("A R/M register operand may not have a SIB byte");
     return true;
@@ -2039,17 +2039,17 @@ static bool translateRMRegister(MCInstGPU_X86 &mcInst, InternalInstruction &insn
 
 /// translateRMMemory - Translates a memory operand stored in the Mod and R/M
 ///   fields of an internal instruction (and possibly its SIB byte) to a memory
-///   operand in LLVM's format, and appends it to an MCInstGPU.
+///   operand in LLVM's format, and appends it to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param insn         - The instruction to extract Mod, R/M, and SIB fields
 ///                       from.
 /// @param ForceSIB     - The instruction must use SIB.
 /// @return             - 0 on success; nonzero otherwise
-static bool translateRMMemory(MCInstGPU_X86 &mcInst, InternalInstruction &insn,
+static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
                               const MCDisassembler *Dis,
                               bool ForceSIB = false) {
-  // Addresses in an MCInstGPU are represented as five operands:
+  // Addresses in an MCInst are represented as five operands:
   //   1. basereg       (register)  The R/M base, or (if there is a SIB) the
   //                                SIB base
   //   2. scaleamount   (immediate) 1, or (if there is a SIB) the specified
@@ -2206,14 +2206,14 @@ static bool translateRMMemory(MCInstGPU_X86 &mcInst, InternalInstruction &insn,
 }
 
 /// translateRM - Translates an operand stored in the R/M (and possibly SIB)
-///   byte of an instruction to LLVM form, and appends it to an MCInstGPU.
+///   byte of an instruction to LLVM form, and appends it to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param operand      - The operand, as stored in the descriptor table.
 /// @param insn         - The instruction to extract Mod, R/M, and SIB fields
 ///                       from.
 /// @return             - 0 on success; nonzero otherwise
-static bool translateRM(MCInstGPU_X86 &mcInst, const OperandSpecifier &operand,
+static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
                         InternalInstruction &insn, const MCDisassembler *Dis) {
   switch (operand.type) {
   default:
@@ -2246,21 +2246,21 @@ static bool translateRM(MCInstGPU_X86 &mcInst, const OperandSpecifier &operand,
 }
 
 /// translateFPRegister - Translates a stack position on the FPU stack to its
-///   LLVM form, and appends it to an MCInstGPU.
+///   LLVM form, and appends it to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param stackPos     - The stack position to translate.
-static void translateFPRegister(MCInstGPU_X86 &mcInst, uint8_t stackPos) {
+static void translateFPRegister(MCInst &mcInst, uint8_t stackPos) {
   mcInst.addOperand(MCOperand::createReg(X86::ST0 + stackPos));
 }
 
 /// translateMaskRegister - Translates a 3-bit mask register number to
-///   LLVM form, and appends it to an MCInstGPU.
+///   LLVM form, and appends it to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param maskRegNum   - Number of mask register from 0 to 7.
 /// @return             - false on success; true otherwise.
-static bool translateMaskRegister(MCInstGPU_X86 &mcInst, uint8_t maskRegNum) {
+static bool translateMaskRegister(MCInst &mcInst, uint8_t maskRegNum) {
   if (maskRegNum >= 8) {
     debug("Invalid mask register number");
     return true;
@@ -2271,13 +2271,13 @@ static bool translateMaskRegister(MCInstGPU_X86 &mcInst, uint8_t maskRegNum) {
 }
 
 /// translateOperand - Translates an operand stored in an internal instruction
-///   to LLVM's format and appends it to an MCInstGPU.
+///   to LLVM's format and appends it to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to append to.
+/// @param mcInst       - The MCInst to append to.
 /// @param operand      - The operand, as stored in the descriptor table.
 /// @param insn         - The internal instruction.
 /// @return             - false on success; true otherwise.
-static inline bool translateOperand(MCInstGPU_X86 &mcInst,
+static inline bool translateOperand(MCInst &mcInst,
                                     const OperandSpecifier &operand,
                                     InternalInstruction &insn,
                                     const MCDisassembler *Dis) {
@@ -2345,12 +2345,12 @@ static inline bool translateOperand(MCInstGPU_X86 &mcInst,
 }
 
 /// translateInstruction - Translates an internal instruction and all its
-///   operands to an MCInstGPU.
+///   operands to an MCInst.
 ///
-/// @param mcInst       - The MCInstGPU to populate with the instruction's data.
+/// @param mcInst       - The MCInst to populate with the instruction's data.
 /// @param insn         - The internal instruction.
 /// @return             - false on success; true otherwise.
-static inline bool translateInstruction(MCInstGPU_X86 &mcInst,
+static inline bool translateInstruction(MCInst &mcInst,
                                         InternalInstruction &insn,
                                         const MCDisassembler *Dis) {
   if (!insn.spec) {
