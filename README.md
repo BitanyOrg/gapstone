@@ -14,4 +14,30 @@ python3 scripts/generate_tables.py --tblgen llvm-tblgen-{LLVM_VERSION} --llvm ./
 
 ## TODO
 
-[](Decode Operands on Accelerators)
+- [x] Decode Operands on Accelerators
+- [] Architectures
+    - [x] AArch64
+    - [] AMDGPU
+    - [] ARC
+    - [] ARM (Unhealthy)
+    - [] AVR
+    - [] BPF
+    - [] CSKY
+    - [] DirectX
+    - [] Hexagon
+    - [] Lanai
+    - [] LoongArch
+    - [] M68k
+    - [] Mips
+    - [] MSP430
+    - [] NVPTX
+    - [] PowerPC
+    - [] RISCV
+    - [] Sparc
+    - [] SPIRV
+    - [] SystemZ
+    - [] VE
+    - [] WebAssembly
+    - [x] X86
+    - [] XCore
+    - [] Xtensa
