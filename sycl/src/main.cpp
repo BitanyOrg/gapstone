@@ -39,6 +39,7 @@ struct Args {
   std::string features;
   int step_size;
   bool naive;
+  bool print;
 };
 
 std::optional<Args> ParseArgs(int argc, char *argvp[]) {
@@ -48,9 +49,9 @@ std::optional<Args> ParseArgs(int argc, char *argvp[]) {
       "triple,t", po::value<std::string>(),
       "Target triple")("cpu,c", po::value<std::string>(), "CPU")(
       "features,r", po::value<std::string>(),
-      "Features")("step_size,s", po::value<int>(), "Step Size")(
-      "naive,n", "Use naive implementation")("help,h",
-                                                                "Print help");
+      "Features")("step_size,s", po::value<int>(),
+                  "Step Size")("naive,n", "Use naive implementation")(
+      "print,p", "Print Instructions")("help,h", "Print help");
   po::positional_options_description p;
   p.add("file_path", 1);
 
@@ -72,6 +73,7 @@ std::optional<Args> ParseArgs(int argc, char *argvp[]) {
       vm.count("features") ? vm["features"].as<std::string>() : "",
       vm.count("step_size") ? vm["step_size"].as<int>() : 1,
       vm.count("naive") ? true : false,
+      vm.count("print") ? true : false,
   });
 }
 
@@ -93,6 +95,22 @@ disassemble(std::unique_ptr<llvm::MCDisassembler> &disassembler,
   return insn;
 }
 
+std::vector<gapstone::InstInfo>
+batch_disassemble(std::unique_ptr<llvm::MCDisassembler> &disassembler,
+                  const llvm::ArrayRef<uint8_t> &data, uint64_t base_addr,
+                  int step_size) {
+  auto tasks = data.size() / step_size;
+  std::vector<gapstone::InstInfo> insts(tasks);
+  for (int i = 0; i < tasks; i += step_size) {
+    auto offset = i * step_size;
+    uint64_t insn_size = 0;
+    insts[i].status = disassembler->getInstruction(
+        insts[i].inst, insn_size, data.slice(offset), base_addr + offset,
+        llvm::nulls());
+  }
+  return insts;
+}
+
 int main(int argc, char **argv) {
   llvm::InitializeAllTargetInfos();
   llvm::InitializeAllTargetMCs();
@@ -101,9 +119,7 @@ int main(int argc, char **argv) {
   llvm::InitializeAllDisassemblers();
   // Create queue on whatever default device that the
   // implementation chooses. Implicit use of
-  // default_selector_v
   queue q;
-  // queue q;
   auto args = ParseArgs(argc, argv);
   if (!args) {
     return -1;
@@ -180,32 +196,16 @@ int main(int argc, char **argv) {
     auto base_addr = section.virtual_address();
     uint64_t len = section.content().size();
     auto content = elf->get_content_from_virtual_address(base_addr, len);
+    std::vector<gapstone::InstInfo> insns;
     if (args->naive) {
-
-      for (int i = 0; i < len; i += args->step_size) {
-        auto offset = i * args->step_size;
-        const llvm::ArrayRef<uint8_t> data(content.begin() + offset,
-                                           content.end());
-        auto insn = disassemble(disassembler, data, base_addr + offset);
-        if (!insn) {
-          continue;
-        }
-        std::string insn_str;
-        llvm::raw_string_ostream str_stream(insn_str);
-        if (insn) {
-          instruction_printer->printInst(
-              &*insn,
-              /* Address */ base_addr + args->step_size * i,
-              /* Annot */ "", *subtarget_info, str_stream);
-          std::cout << "0x" << std::hex << base_addr + offset << " " << insn_str
-                    << std::endl;
-        }
-      }
+      const llvm::ArrayRef<uint8_t> data(content.begin(), content.end());
+      insns = batch_disassemble(disassembler, data, base_addr, args->step_size);
     } else {
-
       std::vector<uint8_t> content_vector{content.begin(), content.end()};
-      auto insns = gapstone_disassembler->batch_disassemble(
+      insns = gapstone_disassembler->batch_disassemble(
           base_addr, content_vector, args->step_size);
+    }
+    if (args->print) {
       for (int i = 0; i < insns.size(); ++i) {
         if (insns[i].status != llvm::MCDisassembler::DecodeStatus::Success) {
           continue;
