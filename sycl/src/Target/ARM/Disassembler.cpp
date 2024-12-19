@@ -12,9 +12,25 @@ namespace gapstone {
 
 namespace ARMImpl {
 
-DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
-                                 ArrayRef<uint8_t> Bytes, uint64_t Address,
-                                 const FeatureBitset &Bits) {
+const uint8_t *const ThumbDecodeTables[] = {
+    DecoderTableThumb16,        DecoderTableThumbSBit16,
+    DecoderTableThumb216,       DecoderTableMVE32,
+    DecoderTableThumb32,        DecoderTableThumb232,
+    DecoderTableVFP32,          DecoderTableVFPV832,
+    DecoderTableNEONDup32,      DecoderTableNEONLoadStore32,
+    DecoderTableNEONData32,     DecoderTablev8Crypto32,
+    DecoderTablev8NEON32,       DecoderTableThumb2CDE32,
+    DecoderTableThumb2CoProc32,
+};
+
+const uint8_t *const ARMDecodeTables[] = {
+    DecoderTableARM32,      DecoderTableVFP32,           DecoderTableVFPV832,
+    DecoderTableNEONData32, DecoderTableNEONLoadStore32, DecoderTableNEONDup32,
+    DecoderTablev8NEON32,   DecoderTablev8Crypto32,      DecoderTableCoProc32};
+
+template <typename T>
+DecodeStatus getThumbInstruction(T &MI, unsigned &Size, ArrayRef<uint8_t> Bytes,
+                                 uint64_t Address, const FeatureBitset &Bits) {
 
   // We want to read exactly 2 bytes of data.
   llvm::endianness InstructionEndianness = Bits[ARM::ModeBigEndianInstructions]
@@ -27,48 +43,24 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
 
   uint16_t Insn16 = llvm::support::endian::read<uint16_t>(
       Bytes.data(), InstructionEndianness);
-  DecodeStatus Result = decodeInstruction(DecoderTableThumb16, MI, Insn16,
-                                          Address, nullptr, Bits);
+  DecodeStatus Result =
+      decodeOpCode(DecoderTableThumb16, MI, Insn16, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 2;
-    // Check(Result, AddThumbPredicate(MI));
     return Result;
   }
 
-  Result = decodeInstruction(DecoderTableThumbSBit16, MI, Insn16, Address,
-                             nullptr, Bits);
+  Result =
+      decodeOpCode(DecoderTableThumbSBit16, MI, Insn16, Address, nullptr, Bits);
   if (Result) {
     Size = 2;
-    // bool InITBlock = ITBlock.instrInITBlock();
-    // Check(Result, AddThumbPredicate(MI));
-    // AddThumb1SBit(MI, InITBlock);
     return Result;
   }
 
-  Result = decodeInstruction(DecoderTableThumb216, MI, Insn16, Address, nullptr,
-                             Bits);
+  Result =
+      decodeOpCode(DecoderTableThumb216, MI, Insn16, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 2;
-
-    // Nested IT blocks are UNPREDICTABLE.  Must be checked before we add
-    // the Thumb predicate.
-    // if (MI.getOpcode() == ARM::t2IT && ITBlock.instrInITBlock())
-    //   Result = MCDisassembler::SoftFail;
-
-    // Check(Result, AddThumbPredicate(MI));
-
-    // If we find an IT instruction, we need to parse its condition
-    // code and mask operands so that we can apply them correctly
-    // to the subsequent instructions.
-    // if (MI.getOpcode() == ARM::t2IT) {
-    //   unsigned Firstcond = MI.getOperand(0).getImm();
-    //   unsigned Mask = MI.getOperand(1).getImm();
-    //   ITBlock.setITState(Firstcond, Mask);
-
-    //   // An IT instruction that would give a 'NV' predicate is unpredictable.
-    //   if (Firstcond == ARMCC::AL && !isPowerOf2_32(Mask))
-    // }
-
     return Result;
   }
 
@@ -82,67 +74,47 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
       (uint32_t(Insn16) << 16) | llvm::support::endian::read<uint16_t>(
                                      Bytes.data() + 2, InstructionEndianness);
 
+  Result = decodeOpCode(DecoderTableMVE32, MI, Insn32, Address, nullptr, Bits);
+  if (Result != MCDisassembler::Fail) {
+    Size = 4;
+    return Result;
+  }
+
   Result =
-      decodeInstruction(DecoderTableMVE32, MI, Insn32, Address, nullptr, Bits);
+      decodeOpCode(DecoderTableThumb32, MI, Insn32, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 4;
-
-    // Nested VPT blocks are UNPREDICTABLE. Must be checked before we add
-    // the VPT predicate.
-    // if (isVPTOpcode(MI.getOpcode()) && VPTBlock.instrInVPTBlock())
-    //   Result = MCDisassembler::SoftFail;
-
-    // Check(Result, AddThumbPredicate(MI));
-
-    // if (isVPTOpcode(MI.getOpcode())) {
-    //   unsigned Mask = MI.getOperand(0).getImm();
-    //   VPTBlock.setVPTState(Mask);
-    // }
-
     return Result;
   }
 
-  Result = decodeInstruction(DecoderTableThumb32, MI, Insn32, Address, nullptr,
-                             Bits);
+  Result =
+      decodeOpCode(DecoderTableThumb232, MI, Insn32, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 4;
-    // bool InITBlock = ITBlock.instrInITBlock();
-    // Check(Result, AddThumbPredicate(MI));
-    // AddThumb1SBit(MI, InITBlock);
     return Result;
-  }
-
-  Result = decodeInstruction(DecoderTableThumb232, MI, Insn32, Address, nullptr,
-                             Bits);
-  if (Result != MCDisassembler::Fail) {
-    Size = 4;
-    // Check(Result, AddThumbPredicate(MI));
-    return checkDecodedInstruction(MI, Size, Address, Insn32, Result);
   }
 
   if (fieldFromInstruction(Insn32, 28, 4) == 0xE) {
-    Result = decodeInstruction(DecoderTableVFP32, MI, Insn32, Address, nullptr,
-                               Bits);
+    Result =
+        decodeOpCode(DecoderTableVFP32, MI, Insn32, Address, nullptr, Bits);
     if (Result != MCDisassembler::Fail) {
       Size = 4;
-      // UpdateThumbVFPPredicate(Result, MI);
       return Result;
     }
   }
 
-  Result = decodeInstruction(DecoderTableVFPV832, MI, Insn32, Address, nullptr,
-                             Bits);
+  Result =
+      decodeOpCode(DecoderTableVFPV832, MI, Insn32, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 4;
     return Result;
   }
 
   if (fieldFromInstruction(Insn32, 28, 4) == 0xE) {
-    Result = decodeInstruction(DecoderTableNEONDup32, MI, Insn32, Address,
-                               nullptr, Bits);
+    Result =
+        decodeOpCode(DecoderTableNEONDup32, MI, Insn32, Address, nullptr, Bits);
     if (Result != MCDisassembler::Fail) {
       Size = 4;
-      // Check(Result, AddThumbPredicate(MI));
       return Result;
     }
   }
@@ -151,11 +123,10 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
     uint32_t NEONLdStInsn = Insn32;
     NEONLdStInsn &= 0xF0FFFFFF;
     NEONLdStInsn |= 0x04000000;
-    Result = decodeInstruction(DecoderTableNEONLoadStore32, MI, NEONLdStInsn,
-                               Address, nullptr, Bits);
+    Result = decodeOpCode(DecoderTableNEONLoadStore32, MI, NEONLdStInsn,
+                          Address, nullptr, Bits);
     if (Result != MCDisassembler::Fail) {
       Size = 4;
-      // Check(Result, AddThumbPredicate(MI));
       return Result;
     }
   }
@@ -165,11 +136,10 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
     NEONDataInsn &= 0xF0FFFFFF;                       // Clear bits 27-24
     NEONDataInsn |= (NEONDataInsn & 0x10000000) >> 4; // Move bit 28 to bit 24
     NEONDataInsn |= 0x12000000;                       // Set bits 28 and 25
-    Result = decodeInstruction(DecoderTableNEONData32, MI, NEONDataInsn,
-                               Address, nullptr, Bits);
+    Result = decodeOpCode(DecoderTableNEONData32, MI, NEONDataInsn, Address,
+                          nullptr, Bits);
     if (Result != MCDisassembler::Fail) {
       Size = 4;
-      // Check(Result, AddThumbPredicate(MI));
       return Result;
     }
 
@@ -178,8 +148,8 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
     NEONCryptoInsn |=
         (NEONCryptoInsn & 0x10000000) >> 4; // Move bit 28 to bit 24
     NEONCryptoInsn |= 0x12000000;           // Set bits 28 and 25
-    Result = decodeInstruction(DecoderTablev8Crypto32, MI, NEONCryptoInsn,
-                               Address, nullptr, Bits);
+    Result = decodeOpCode(DecoderTablev8Crypto32, MI, NEONCryptoInsn, Address,
+                          nullptr, Bits);
     if (Result != MCDisassembler::Fail) {
       Size = 4;
       return Result;
@@ -187,8 +157,8 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
 
     uint32_t NEONv8Insn = Insn32;
     NEONv8Insn &= 0xF3FFFFFF; // Clear bits 27-26
-    Result = decodeInstruction(DecoderTablev8NEON32, MI, NEONv8Insn, Address,
-                               nullptr, Bits);
+    Result = decodeOpCode(DecoderTablev8NEON32, MI, NEONv8Insn, Address,
+                          nullptr, Bits);
     if (Result != MCDisassembler::Fail) {
       Size = 4;
       return Result;
@@ -200,10 +170,9 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
       ((Coproc < 8) & Bits[ARM::FeatureCoprocCDE0 + Coproc])
           ? DecoderTableThumb2CDE32
           : DecoderTableThumb2CoProc32;
-  Result = decodeInstruction(DecoderTable, MI, Insn32, Address, nullptr, Bits);
+  Result = decodeOpCode(DecoderTable, MI, Insn32, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 4;
-    // Check(Result, AddThumbPredicate(MI));
     return Result;
   }
 
@@ -211,9 +180,13 @@ DecodeStatus getThumbInstruction(MCInst &MI, uint64_t &Size,
   return MCDisassembler::Fail;
 }
 
-DecodeStatus getARMInstruction(MCInst &MI, uint64_t &Size,
-                               ArrayRef<uint8_t> Bytes, uint64_t Address,
-                               const FeatureBitset &Bits) {
+template <typename T>
+DecodeStatus getThumbOperands(T &MI, uint64_t Address,
+                              const FeatureBitset &Bits) {}
+
+template <typename T>
+DecodeStatus getARMInstruction(T &MI, unsigned &Size, ArrayRef<uint8_t> Bytes,
+                               uint64_t Address, const FeatureBitset &Bits) {
   llvm::endianness InstructionEndianness = Bits[ARM::ModeBigEndianInstructions]
                                                ? llvm::endianness::big
                                                : llvm::endianness::little;
@@ -224,15 +197,16 @@ DecodeStatus getARMInstruction(MCInst &MI, uint64_t &Size,
   }
 
   // Encoded as a 32-bit word in the stream.
-  uint32_t Insn = llvm::support::endian::read<uint32_t>(Bytes.data(),
-                                                        InstructionEndianness);
+  uint32_t Insn32 = llvm::support::endian::read<uint32_t>(
+      Bytes.data(), InstructionEndianness);
 
   // Calling the auto-generated decoder function.
   DecodeStatus Result =
-      decodeInstruction(DecoderTableARM32, MI, Insn, Address, nullptr, Bits);
+      decodeOpCode(DecoderTableARM32, MI, Insn32, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 4;
-    return checkDecodedInstruction(MI, Size, Address, Insn, Result);
+    // return checkDecodedInstruction(MI, Size, Address, Insn32, Result);
+    return Result;
   }
 
   struct DecodeTable {
@@ -248,36 +222,34 @@ DecodeStatus getARMInstruction(MCInst &MI, uint64_t &Size,
   };
 
   for (auto Table : Tables) {
-    Result = decodeInstruction(Table.P, MI, Insn, Address, nullptr, Bits);
+    Result = decodeOpCode(Table.P, MI, Insn32, Address, nullptr, Bits);
     if (Result != MCDisassembler::Fail) {
       Size = 4;
-      // Add a fake predicate operand, because we share these instruction
-      // definitions with Thumb2 where these instructions are predicable.
-      // if (Table.DecodePred &&
-      //     !DecodePredicateOperand(MI, 0xE, Address, nullptr))
-      //   return MCDisassembler::Fail;
       return Result;
     }
   }
 
   Result =
-      decodeInstruction(DecoderTableCoProc32, MI, Insn, Address, nullptr, Bits);
+      decodeOpCode(DecoderTableCoProc32, MI, Insn32, Address, nullptr, Bits);
   if (Result != MCDisassembler::Fail) {
     Size = 4;
-    return checkDecodedInstruction(MI, Size, Address, Insn, Result);
+    return Result;
   }
 
   Size = 4;
   return MCDisassembler::Fail;
 }
 
-static DecodeStatus disassemble_instruction(MCInst &MI, uint64_t &Size,
-                                            ArrayRef<uint8_t> Bytes,
-                                            uint64_t Address,
-                                            const FeatureBitset &Bits) {
+template <typename T>
+DecodeStatus getARMOperands(T &MI, uint64_t Address,
+                            const FeatureBitset &Bits) {}
+
+static DecodeStatus decode_instruction(MCInst &MI, ArrayRef<uint8_t> Bytes,
+                                       uint64_t Address,
+                                       const FeatureBitset &Bits) {
   if (Bits[ARM::ModeThumb])
-    return getThumbInstruction(MI, Size, Bytes, Address, Bits);
-  return getARMInstruction(MI, Size, Bytes, Address, Bits);
+    return getThumbInstruction(MI, MI.Size, Bytes, Address, Bits);
+  return getARMInstruction(MI, MI.Size, Bytes, Address, Bits);
 }
 
 #include "DisassembleImpl.h"
@@ -285,7 +257,7 @@ static DecodeStatus disassemble_instruction(MCInst &MI, uint64_t &Size,
 
 std::unique_ptr<InstInfoContainer> ARMDisassembler::batch_disassemble(
     uint64_t base_addr, std::vector<uint8_t> &content, int step_size) {
-  return ARMImpl::disassemble_impl<MCInstGPU_ARM>(q, MCDisassembler, base_addr,
-                                                  content, step_size);
+  return ARMImpl::decode_impl<MCInstGPU_ARM>(q, MCDisassembler, base_addr,
+                                             content, step_size);
 }
 } // namespace gapstone

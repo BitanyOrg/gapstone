@@ -89,7 +89,7 @@ llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_LINK_COMPONENTS})
 
 # set(LLVM_LIBS LLVMSupport LLVMTargetParser LLVMMC)
 
-set (CXX_FLAGS ${CXX_FLAGS} -Wno-language-extension-token -Wno-return-type)
+set (CXX_FLAGS ${CXX_FLAGS} -Wno-language-extension-token -Wno-return-type -Wno-unused-function)
 
 if(WITHCUDA)
     set(CXX_FLAGS ${CXX_FLAGS} -fsycl-targets=nvptx64-nvidia-cuda,spir64 -Xsycl-target-backend=nvptx64-nvidia-cuda --cuda-gpu-arch=${CUDA_GPU_ARCH})
@@ -113,13 +113,6 @@ add_executable(
 target_compile_options(${TOOL_NAME} PRIVATE -fsycl -fsycl-unnamed-lambda -ferror-limit=1 -Wall -Wpedantic ${CXX_FLAGS})
 
 target_link_libraries(${TOOL_NAME} PRIVATE ${LIBS} -fsycl ${LLVM_LIBS} LIEF::LIEF Boost::program_options SyclDisassembler)
-# target_link_libraries(${TOOL_NAME} PRIVATE ${LIBS} -fsycl ${LLVM_LIBS} LIEF::LIEF Boost::program_options)
-
-
-# set_target_properties(${TOOL_NAME} PROPERTIES
-#     INSTALL_RPATH "$ORIGIN/../src/Target/libSyclDisassembler.so"
-#     BUILD_RPATH "$ORIGIN/../src/Target/libSyclDisassembler.so"
-# )
 
 if(CMAKE_CONFIGURATION_TYPES)
     set(CONFIGS ${CMAKE_CONFIGURATION_TYPES})

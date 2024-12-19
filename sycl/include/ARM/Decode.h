@@ -11,8 +11,8 @@
 #include "MCInstGPU.h"
 #include "MCTargetDesc/ARMAddressingModes.h"
 #include "MCTargetDesc/ARMBaseInfo.h"
-#include "MCTargetDesc/ARMMCTargetDesc.cpp"
 #include "MCTargetDesc/ARMMCTargetDesc.h"
+#include "StaticDecode.h"
 #include "TargetInfo/ARMTargetInfo.h"
 #include "Utils/ARMBaseInfo.h"
 #include "llvm/MC/MCContext.h"
@@ -31,8 +31,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <vector>
-
 using namespace llvm;
 using MCInstGPU_ARM = MCInstGPU<6>;
 
@@ -41,6 +39,16 @@ using MCInstGPU_ARM = MCInstGPU<6>;
 // #define DEBUG_TYPE "arm-disassembler"
 
 namespace gapstone {
+template <typename T> [[nodiscard]] constexpr T rotr(T V, int R) {
+  unsigned N = std::numeric_limits<T>::digits;
+
+  R = R % N;
+  if (!R)
+    return V;
+
+  return (V >> R) | (V << (N - R));
+}
+
 namespace ARMTable {
 #define GET_INSTRINFO_MC_DESC
 #include "ARMGenInstrInfo.inc"
@@ -645,11 +653,10 @@ static bool tryAddingSymbolicOperand(uint64_t Address, int32_t Value,
                                      const MCDisassembler *Decoder) {
   // FIXME: Does it make sense for value to be negative?
   // return Decoder->tryAddingSymbolicOperand(MI, (uint32_t)Value, Address,
-  //                                          isBranch, /*Offset=*/0, /*OpSize=*/0,
-  //                                          InstSize);
+  //                                          isBranch, /*Offset=*/0,
+  //                                          /*OpSize=*/0, InstSize);
   return false;
 }
-
 
 /// tryAddingPcLoadReferenceComment - trys to add a comment as to what is being
 /// referenced by a load instruction with the base register that is the Pc.
@@ -4535,7 +4542,7 @@ static DecodeStatus DecodeT2SOImm(MCInst &Inst, unsigned Val, uint64_t Address,
   } else {
     unsigned unrot = fieldFromInstruction(Val, 0, 7) | 0x80;
     unsigned rot = fieldFromInstruction(Val, 7, 5);
-    unsigned imm = llvm::rotr<uint32_t>(unrot, rot);
+    unsigned imm = gapstone::rotr<uint32_t>(unrot, rot);
     Inst.addOperand(MCOperand::createImm(imm));
   }
 
