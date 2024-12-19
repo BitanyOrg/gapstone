@@ -26,8 +26,7 @@ namespace llvm {
 
 /// Instances of this class represent a single low-level machine
 /// instruction.
-template<unsigned N>
-class MCInstGPU {
+template <unsigned N = 8, typename InsnType = uint64_t> class MCInstGPU {
 
 public:
   unsigned Opcode = 0;
@@ -35,11 +34,13 @@ public:
   // to another, for example, from disassembler to asm printer. The values of
   // the flags have any sense on target level only (e.g. prefixes on x86).
   unsigned Flags = 0;
-
+  unsigned DecodeIdx;
+  unsigned ActualNumOperands;
+  unsigned Size;
+  unsigned TableIdx; // Used for ARM Decoding
+  InsnType Insn;
   SMLoc Loc;
   StaticVector<MCOperand, N> Operands;
-
-  unsigned ActualNumOperands;
 
   MCInstGPU() = default;
 
@@ -56,7 +57,10 @@ public:
   MCOperand &getOperand(unsigned i) { return Operands[i]; }
   unsigned getNumOperands() const { return Operands.size(); }
 
-  void addOperand(const MCOperand Op) { Operands.push_back(Op); ++ActualNumOperands; }
+  void addOperand(const MCOperand Op) {
+    Operands.push_back(Op);
+    ++ActualNumOperands;
+  }
 
   using iterator = typename StaticVector<MCOperand, N>::iterator;
   using const_iterator = typename StaticVector<MCOperand, N>::const_iterator;

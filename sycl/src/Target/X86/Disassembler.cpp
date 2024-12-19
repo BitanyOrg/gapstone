@@ -16,7 +16,6 @@ namespace gapstone {
 
 namespace X86Impl {
 static DecodeStatus disassemble_instruction(MCInstGPU_X86 &Instr,
-                                            uint64_t &Size,
                                             ArrayRef<uint8_t> Bytes,
                                             uint64_t Address,
                                             const FeatureBitset &Bits) {
@@ -40,14 +39,14 @@ static DecodeStatus disassemble_instruction(MCInstGPU_X86 &Instr,
   if (Bytes.empty() || readPrefixes(&Insn) || readOpcode(&Insn) ||
       getInstructionID(&Insn) || Insn.instructionID == 0 ||
       readOperands(&Insn)) {
-    Size = Insn.readerCursor - Address;
+    Instr.Size = Insn.readerCursor - Address;
     return MCDisassembler::Fail;
   }
 
   Insn.operands = x86OperandSets[Insn.spec->operands];
   Insn.length = Insn.readerCursor - Insn.startLocation;
-  Size = Insn.length;
-  if (Size > 15)
+  Instr.Size = Insn.length;
+  if (Instr.Size > 15)
     LLVM_DEBUG(dbgs() << "Instruction exceeds 15-byte limit");
 
   bool Ret = translateInstruction(Instr, Insn, nullptr);

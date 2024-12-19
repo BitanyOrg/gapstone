@@ -26,10 +26,11 @@ ninja -C build
 
 - [x] Decode Operands on Accelerators
 - [ ] Architectures
+  - [x] X86
   - [x] AArch64
+  - [ ] ARM (Unhealthy)
   - [ ] AMDGPU
   - [ ] ARC
-  - [ ] ARM (Unhealthy)
   - [ ] AVR
   - [ ] BPF
   - [ ] CSKY
@@ -48,6 +49,5 @@ ninja -C build
   - [ ] SystemZ
   - [ ] VE
   - [ ] WebAssembly
-  - [x] X86
   - [ ] XCore
   - [ ] Xtensa

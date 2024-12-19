@@ -11,15 +11,14 @@ namespace gapstone {
 
 namespace AArch64Impl {
 static DecodeStatus disassemble_instruction(MCInstGPU_AArch64 &MI,
-                                            uint64_t &Size,
                                             ArrayRef<uint8_t> Bytes,
                                             uint64_t Address,
                                             const FeatureBitset &Bits) {
-  Size = 0;
+  MI.Size = 0;
   // We want to read exactly 4 bytes of data.
   if (Bytes.size() < 4)
     return MCDisassembler::Fail;
-  Size = 4;
+  MI.Size = 4;
 
   // Encoded as a small-endian 32-bit word in the stream.
   unsigned Insn =

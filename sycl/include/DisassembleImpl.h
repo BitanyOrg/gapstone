@@ -48,15 +48,72 @@ disassemble_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
   auto event_disassemble = q.submit([&](sycl::handler &h) {
     h.depends_on(event_copy);
     h.parallel_for(tasks, [=](sycl::id<1> i) {
-      uint64_t size;
       uint64_t offset = i * step_size;
       llvm::ArrayRef<uint8_t> array_ref(device_content + offset,
                                         buffer_size - offset);
-      status[i] = disassemble_instruction(gpu_insts[i], size, array_ref,
+      status[i] = disassemble_instruction(gpu_insts[i], array_ref,
                                           base_addr + offset, Bits);
     });
   });
   event_disassemble.wait();
+  auto res = std::make_unique<gapstone::InstInfoContainerGPU<T>>(tasks);
+  q.memcpy(res->status.data(), status, tasks * sizeof(DecodeStatus));
+  q.memcpy(res->insts.data(), gpu_insts, tasks * sizeof(T));
+  q.wait();
+  sycl::free(status, q);
+  sycl::free(gpu_insts, q);
+  sycl::free(device_content, q);
+  return res;
+}
+
+template <typename T>
+static std::unique_ptr<gapstone::InstInfoContainer>
+decode_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
+            uint64_t base_addr, std::vector<uint8_t> &content, int step_size) {
+  auto tasks = content.size() / step_size;
+  const FeatureBitset &Bits =
+      MCDisassembler.getSubtargetInfo().getFeatureBits();
+  auto buffer_size = content.size();
+  T *gpu_insts = sycl::malloc_shared<T>(tasks, q);
+  DecodeStatus *status = sycl::malloc_shared<DecodeStatus>(tasks, q);
+  uint8_t *device_content = sycl::malloc_device<uint8_t>(content.size(), q);
+  auto event_copy = q.memcpy(device_content, content.data(), content.size());
+  auto event_disassemble = q.submit([&](sycl::handler &h) {
+    h.depends_on(event_copy);
+    h.parallel_for(tasks, [=](sycl::id<1> i) {
+      uint64_t offset = i * step_size;
+      llvm::ArrayRef<uint8_t> array_ref(device_content + offset,
+                                        buffer_size - offset);
+      status[i] =
+          decode_instruction(gpu_insts[i], array_ref, base_addr + offset, Bits);
+    });
+  });
+  event_disassemble.wait();
+  for (int i = 0; i < tasks; ++i) {
+    bool DecodeComplete;
+    switch (gpu_insts[i].Size) {
+    case 2:
+      status[i] = decodeToMCInst(status[i], gpu_insts[i].DecodeIdx,
+                                 static_cast<uint16_t>(gpu_insts[i].Insn),
+                                 gpu_insts[i], base_addr + i * step_size,
+                                 &MCDisassembler, DecodeComplete);
+      break;
+    case 4:
+      status[i] = decodeToMCInst(status[i], gpu_insts[i].DecodeIdx,
+                                 static_cast<uint32_t>(gpu_insts[i].Insn),
+                                 gpu_insts[i], base_addr + i * step_size,
+                                 &MCDisassembler, DecodeComplete);
+      break;
+    case 8:
+      status[i] = decodeToMCInst(status[i], gpu_insts[i].DecodeIdx,
+                                 static_cast<uint64_t>(gpu_insts[i].Insn),
+                                 gpu_insts[i], base_addr + i * step_size,
+                                 &MCDisassembler, DecodeComplete);
+      break;
+    default:
+      break;
+    }
+  }
   auto res = std::make_unique<gapstone::InstInfoContainerGPU<T>>(tasks);
   q.memcpy(res->status.data(), status, tasks * sizeof(DecodeStatus));
   q.memcpy(res->insts.data(), gpu_insts, tasks * sizeof(T));
