@@ -17,7 +17,7 @@ namespace gapstone {
 
 namespace X86Impl {
 static DecodeStatus disassemble_instruction(MCInstGPU_X86 &Instr,
-                                            ArrayRef<uint8_t> Bytes,
+                                            ArrayRef<uint8_t> &Bytes,
                                             uint64_t Address,
                                             const FeatureBitset &Bits) {
   DisassemblerMode fMode;

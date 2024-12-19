@@ -12,7 +12,7 @@ namespace gapstone {
 
 namespace LanaiImpl {
 static DecodeStatus
-disassemble_instruction(MCInstGPU_Lanai &MI, ArrayRef<uint8_t> Bytes,
+disassemble_instruction(MCInstGPU_Lanai &MI, ArrayRef<uint8_t> &Bytes,
                         uint64_t Address, const FeatureBitset &Bits) {
   uint32_t Insn;
 

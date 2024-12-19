@@ -11,7 +11,7 @@ namespace gapstone {
 
 namespace AArch64Impl {
 static DecodeStatus disassemble_instruction(MCInstGPU_AArch64 &MI,
-                                            ArrayRef<uint8_t> Bytes,
+                                            ArrayRef<uint8_t> &Bytes,
                                             uint64_t Address,
                                             const FeatureBitset &Bits) {
   MI.Size = 0;

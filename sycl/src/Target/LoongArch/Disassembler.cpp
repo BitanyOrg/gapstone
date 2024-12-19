@@ -13,7 +13,7 @@ namespace gapstone {
 
 namespace LoongArchImpl {
 static DecodeStatus disassemble_instruction(MCInstGPU_LoongArch &MI,
-                                            ArrayRef<uint8_t> Bytes,
+                                            ArrayRef<uint8_t> &Bytes,
                                             uint64_t Address,
                                             const FeatureBitset &Bits) {
   uint32_t Insn;
