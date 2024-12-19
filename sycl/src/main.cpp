@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "Disassemblers.h"
+#include "LIEF/Abstract/Section.hpp"
 #include "SyclDisassembler.h"
 #include <LIEF/LIEF.hpp>
 #include <access/access.hpp>
@@ -124,7 +125,7 @@ int main(int argc, char **argv) {
   if (!args) {
     return -1;
   }
-  auto elf = LIEF::Parser::parse(args->file_path);
+  auto binary = LIEF::Parser::parse(args->file_path);
   auto triple = llvm::Triple(llvm::Triple::normalize(*args->triple));
   std::string lookup_target_error;
   const llvm::Target *target = llvm::TargetRegistry::lookupTarget(
@@ -187,15 +188,15 @@ int main(int argc, char **argv) {
   }
 
   auto gapstone_disassembler = gapstone::createDisassembler(*disassembler, q);
-  std::cout << "Processing Arch " << to_string(elf->header().architecture())
+  std::cout << "Processing Arch " << to_string(binary->header().architecture())
             << std::endl;
-  for (auto &section : elf->sections()) {
+  for (auto &section : binary->sections()) {
     if (section.name() != ".text") {
       continue;
     }
+    std::cout << "Handling section " << section.name() << std::endl;
     auto base_addr = section.virtual_address();
-    uint64_t len = section.content().size();
-    auto content = elf->get_content_from_virtual_address(base_addr, len);
+    auto content = section.content();
     std::unique_ptr<gapstone::InstInfoContainer> insts_info;
     if (args->naive) {
       const llvm::ArrayRef<uint8_t> data(content.begin(), content.end());

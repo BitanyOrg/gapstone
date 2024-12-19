@@ -28,6 +28,7 @@ ninja -C build
 - [ ] Architectures
   - [x] X86
   - [x] AArch64
+  - [x] Lanai
   - [ ] ARM (Unhealthy)
   - [ ] AMDGPU
   - [ ] ARC
@@ -36,7 +37,6 @@ ninja -C build
   - [ ] CSKY
   - [ ] DirectX
   - [ ] Hexagon
-  - [ ] Lanai
   - [ ] LoongArch
   - [ ] M68k
   - [ ] Mips

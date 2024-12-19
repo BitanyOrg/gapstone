@@ -1,5 +1,6 @@
 #include "Disassemblers.h"
 #include "AArch64/AArch64SyclDisassembler.h"
+#include "Lanai/LanaiSyclDisassembler.h"
 #include "X86/X86SyclDisassembler.h"
 // #include "ARM/ARMSyclDisassembler.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
@@ -19,10 +20,13 @@ std::unique_ptr<SyclDisassembler> createDisassembler(llvm::MCDisassembler &dd,
   } else if (triple.isX86()) {
     std::cout << "Creating X86 Disassembler" << std::endl;
     return std::make_unique<X86Disassembler>(dd, qq);
+  } else if (triple.getArch() == llvm::Triple::lanai) {
+    return std::make_unique<LanaiDisassembler>(dd, qq);
+  }
   // } else if (triple.isARM()) {
   //   std::cout << "Creating ARM Disassembler" << std::endl;
   //   return std::make_unique<ARMDisassembler>(dd, qq);
-  } else {
+  else {
     throw std::invalid_argument("Not implemented yet");
   }
 }
