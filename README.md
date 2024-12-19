@@ -2,42 +2,52 @@
 GPU accelerated disassembler
 
 ## Setup
-Download llvm src from github, install the corresponding version of llvm.
-For example, install llvm-18 for [llvm-18](https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/llvm-project-18.1.8.src.tar.xz)
+Install the requirements following guide from [CodePlay](https://developer.codeplay.com/products/oneapi/nvidia/2025.0.0/guides/get-started-guide-nvidia.html).
 
-Decompress the src code into the forder `llvm`.
-
-Use the following scripts to dump json tblgen.
+Clone this module and the submodules.
 ```bash
-python3 scripts/generate_tables.py --tblgen llvm-tblgen-{LLVM_VERSION} --llvm ./llvm --output ./tblgen
+git clone https://github.com/5c4lar/gapstone.git
+cd gapstone
+git submodule update --init --recursive
+```
+Or
+```bash
+git clone --recursive https://github.com/5c4lar/gapstone.git
+```
+## Build
+
+```bash
+cmake -GNinja -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE -DWITHCUDA=True -DCMAKE_BUILD_TYPE=Release 
+-DCMAKE_CXX_COMPILER=icpx .
+ninja -C build
 ```
 
 ## TODO
 
 - [x] Decode Operands on Accelerators
-- [] Architectures
-    - [x] AArch64
-    - [] AMDGPU
-    - [] ARC
-    - [] ARM (Unhealthy)
-    - [] AVR
-    - [] BPF
-    - [] CSKY
-    - [] DirectX
-    - [] Hexagon
-    - [] Lanai
-    - [] LoongArch
-    - [] M68k
-    - [] Mips
-    - [] MSP430
-    - [] NVPTX
-    - [] PowerPC
-    - [] RISCV
-    - [] Sparc
-    - [] SPIRV
-    - [] SystemZ
-    - [] VE
-    - [] WebAssembly
-    - [x] X86
-    - [] XCore
-    - [] Xtensa
+- [ ] Architectures
+  - [x] AArch64
+  - [ ] AMDGPU
+  - [ ] ARC
+  - [ ] ARM (Unhealthy)
+  - [ ] AVR
+  - [ ] BPF
+  - [ ] CSKY
+  - [ ] DirectX
+  - [ ] Hexagon
+  - [ ] Lanai
+  - [ ] LoongArch
+  - [ ] M68k
+  - [ ] Mips
+  - [ ] MSP430
+  - [ ] NVPTX
+  - [ ] PowerPC
+  - [ ] RISCV
+  - [ ] Sparc
+  - [ ] SPIRV
+  - [ ] SystemZ
+  - [ ] VE
+  - [ ] WebAssembly
+  - [x] X86
+  - [ ] XCore
+  - [ ] Xtensa
