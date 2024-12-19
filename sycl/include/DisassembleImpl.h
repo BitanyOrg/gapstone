@@ -1,3 +1,5 @@
+#ifndef GAPSTONE_DISASSEMBLE_IMPL_H
+#define GAPSTONE_DISASSEMBLE_IMPL_H
 #include "SyclDisassembler.h"
 #include <memory>
 #include <sycl/sycl.hpp>
@@ -123,3 +125,5 @@ decode_impl(sycl::queue &q, llvm::MCDisassembler &MCDisassembler,
   sycl::free(device_content, q);
   return res;
 }
+
+#endif // GAPSTONE_DISASSEMBLE_IMPL_H

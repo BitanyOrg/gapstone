@@ -29,6 +29,7 @@ ninja -C build
   - [x] X86
   - [x] AArch64
   - [x] Lanai
+  - [x] LoongArch
   - [ ] ARM (Unhealthy)
   - [ ] AMDGPU
   - [ ] ARC
@@ -37,7 +38,6 @@ ninja -C build
   - [ ] CSKY
   - [ ] DirectX
   - [ ] Hexagon
-  - [ ] LoongArch
   - [ ] M68k
   - [ ] Mips
   - [ ] MSP430

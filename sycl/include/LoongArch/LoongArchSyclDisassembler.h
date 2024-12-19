@@ -1,11 +1,11 @@
-#ifndef GAPSTONE_LANAI_DISASSEMBLER_H
-#define GAPSTONE_LANAI_DISASSEMBLER_H
+#ifndef GAPSTONE_LOONGARCH_DISASSEMBLER_H
+#define GAPSTONE_LOONGARCH_DISASSEMBLER_H
 #include "SyclDisassembler.h"
 
 namespace gapstone {
-class LanaiDisassembler : public SyclDisassembler {
+class LoongArchDisassembler : public SyclDisassembler {
 public:
-  LanaiDisassembler(llvm::MCDisassembler &dd, sycl::queue &qq)
+  LoongArchDisassembler(llvm::MCDisassembler &dd, sycl::queue &qq)
       : SyclDisassembler(dd, qq) {}
   virtual std::unique_ptr<InstInfoContainer> batch_disassemble(uint64_t base_addr,
                                              std::vector<uint8_t> &content,
@@ -13,4 +13,4 @@ public:
 };
 } // namespace gapstone
 
-#endif // GAPSTONE_LANAI_DISASSEMBLER_H
+#endif // GAPSTONE_LOONGARCH_DISASSEMBLER_H

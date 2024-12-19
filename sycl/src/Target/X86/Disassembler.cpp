@@ -1,3 +1,4 @@
+#include "X86/X86SyclDisassembler.h"
 #include "Disassembler/X86DisassemblerDecoder.h"
 #include "SyclDisassembler.h"
 #include "X86/Decode.h"

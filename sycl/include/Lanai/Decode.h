@@ -21,6 +21,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/MathExtras.h"
+#include "DisableUtils.h"
 
 using namespace llvm;
 using MCInstGPU_Lanai = MCInstGPU<6>;
