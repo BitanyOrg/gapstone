@@ -17,8 +17,7 @@ git clone --recursive https://github.com/5c4lar/gapstone.git
 ## Build
 
 ```bash
-cmake -GNinja -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE -DWITHCUDA=True -DCMAKE_BUILD_TYPE=Release 
--DCMAKE_CXX_COMPILER=icpx .
+cmake -GNinja -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE -DWITHCUDA=True -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=icpx -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="M68k" .
 ninja -C build
 ```
 
@@ -30,6 +29,7 @@ ninja -C build
   - [x] AArch64
   - [x] Lanai
   - [x] LoongArch
+  - [x] M68k
   - [ ] ARM (Unhealthy)
   - [ ] AMDGPU
   - [ ] ARC
@@ -38,7 +38,6 @@ ninja -C build
   - [ ] CSKY
   - [ ] DirectX
   - [ ] Hexagon
-  - [ ] M68k
   - [ ] Mips
   - [ ] MSP430
   - [ ] NVPTX

@@ -3,6 +3,7 @@
 #include "Lanai/LanaiSyclDisassembler.h"
 #include "LoongArch/LoongArchSyclDisassembler.h"
 #include "X86/X86SyclDisassembler.h"
+#include "M68k/M68kSyclDisassembler.h"
 // #include "ARM/ARMSyclDisassembler.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
 #include "llvm/MC/MCSubtargetInfo.h"
@@ -27,6 +28,9 @@ std::unique_ptr<SyclDisassembler> createDisassembler(llvm::MCDisassembler &dd,
   } else if (triple.getArch() == llvm::Triple::lanai) {
     std::cout << "Creating Lanai Disassembler" << std::endl;
     return std::make_unique<LanaiDisassembler>(dd, qq);
+  } else if (triple.getArch() == llvm::Triple::m68k) {
+    std::cout << "Creating M68k Disassembler" << std::endl;
+    return std::make_unique<M68kDisassembler>(dd, qq);
   }
   // } else if (triple.isARM()) {
   //   std::cout << "Creating ARM Disassembler" << std::endl;

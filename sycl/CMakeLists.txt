@@ -66,10 +66,7 @@ ENDFOREACH(t)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/tblgen ${LLVM_BINARY_DIR}/include ${TABLEGEN_INCLUDE_DIRS} ${LLVM_SOURCE_DIR}/lib/Target ${LLVM_SOURCE_DIR}/include)
 
 set(LLVM_LINK_COMPONENTS
-    Core
     Support
-    TargetParser
-    MC
     MCDisassembler
     AllTargetsCodeGens
     AllTargetsAsmParsers
